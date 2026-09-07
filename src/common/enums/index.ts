@@ -196,3 +196,40 @@ export enum NotificationStatus {
   SENT = 'SENT',
   FAILED = 'FAILED',
 }
+
+export enum KycStatus {
+  PENDING = 'pending',
+  UNDER_REVIEW = 'under_review',
+  APPROVED = 'approved',
+  REJECTED = 'rejected',
+}
+
+export enum KycDocumentType {
+  PAN = 'pan',
+  GST = 'gst',
+  BUSINESS = 'business',
+  ADDRESS_PROOF = 'address_proof',
+}
+
+export enum OnboardingStep {
+  PARTNER_TYPE = 'partner_type',
+  BUSINESS_DETAILS = 'business_details',
+  STORE_DETAILS = 'store_details',
+  SELLER_SETUP = 'seller_setup',
+  KYC = 'kyc',
+  BANK_SETUP = 'bank_setup',
+  PENDING_APPROVAL = 'pending_approval',
+  COMPLETED = 'completed',
+}
+
+export enum ApprovalStatus {
+  PENDING = 'pending',
+  UNDER_REVIEW = 'under_review',
+  APPROVED = 'approved',
+  REJECTED = 'rejected',
+}
+
+export enum PartnerType {
+  STORE = 'STORE',
+  INDEPENDENT_SELLER = 'INDEPENDENT_SELLER',
+}

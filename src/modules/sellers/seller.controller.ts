@@ -40,6 +40,11 @@ export class SellerController {
     return this.sellerService.listOrders(req.user.id, req.user.userType);
   }
 
+  @Get('earnings')
+  getEarnings(@Req() req: { user: AuthenticatedUser }) {
+    return this.sellerService.getEarnings(req.user.id, req.user.userType);
+  }
+
   @Get('orders/:id')
   getOrder(
     @Req() req: { user: AuthenticatedUser },

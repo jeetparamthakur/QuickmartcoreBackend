@@ -55,6 +55,8 @@ import { BannerEntity } from '../modules/banners/entities/banner.entity';
 import { AdvertisementEntity } from '../modules/advertisements/entities/advertisement.entity';
 import { NotificationEntity } from '../modules/notifications/entities/notification.entity';
 import { FeatureFlagEntity } from '../modules/feature-flags/entities/feature-flag.entity';
+import { KycSubmissionEntity } from '../modules/kyc/entities/kyc-submission.entity';
+import { KycDocumentEntity } from '../modules/kyc/entities/kyc-document.entity';
 
 export const ALL_ENTITIES = [
   UserEntity,
@@ -105,6 +107,8 @@ export const ALL_ENTITIES = [
   AdvertisementEntity,
   NotificationEntity,
   FeatureFlagEntity,
+  KycSubmissionEntity,
+  KycDocumentEntity,
 ];
 
 @Module({

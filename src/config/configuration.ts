@@ -3,7 +3,7 @@ export default () => ({
   nodeEnv: process.env.NODE_ENV ?? 'development',
   databaseUrl:
     process.env.DATABASE_URL ??
-    'postgresql://m3bd:m3bd@localhost:5432/m3bd',
+    'postgresql://param:param@localhost:5436/param',
   redisUrl: process.env.REDIS_URL ?? 'redis://localhost:6379',
   skipDb: process.env.SKIP_DB === 'true',
   corsOrigins: (process.env.CORS_ORIGINS ?? 'http://localhost:3000')

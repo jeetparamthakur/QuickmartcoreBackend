@@ -2,8 +2,7 @@ import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { ConfigService } from '@nestjs/config';
 import { InventoryCleanupProcessor } from './processors/inventory-cleanup.processor';
-
-export const INVENTORY_CLEANUP_QUEUE = 'inventory-cleanup';
+import { INVENTORY_CLEANUP_QUEUE } from './jobs.constants';
 
 @Module({
   imports: [

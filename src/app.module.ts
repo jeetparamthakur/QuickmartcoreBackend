@@ -43,6 +43,7 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { FeatureFlagsModule } from './modules/feature-flags/feature-flags.module';
 import { FileUploadModule } from './modules/file-upload/file-upload.module';
+import { KycModule } from './modules/kyc/kyc.module';
 import { JobsModule } from './jobs/jobs.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
@@ -94,6 +95,7 @@ import { PermissionsGuard } from './common/guards/permissions.guard';
     AnalyticsModule,
     FeatureFlagsModule,
     FileUploadModule,
+    KycModule,
     ...(process.env.SKIP_DB === 'true' ? [] : [JobsModule]),
     ...(process.env.SKIP_DB === 'true' ? [] : [ReportsModule]),
   ],

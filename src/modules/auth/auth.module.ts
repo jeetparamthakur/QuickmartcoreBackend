@@ -43,6 +43,6 @@ import { OtpModule } from '../otp/otp.module';
     JwtStrategy,
     { provide: SESSIONS_REPOSITORY, useClass: SessionsRepository },
   ],
-  exports: [AuthService, TokenService],
+  exports: [AuthService, TokenService, SESSIONS_REPOSITORY],
 })
 export class AuthModule {}

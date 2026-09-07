@@ -1,7 +1,7 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
-import { INVENTORY_CLEANUP_QUEUE } from '../jobs.module';
+import { INVENTORY_CLEANUP_QUEUE } from '../jobs.constants';
 
 @Processor(INVENTORY_CLEANUP_QUEUE)
 export class InventoryCleanupProcessor extends WorkerHost {
