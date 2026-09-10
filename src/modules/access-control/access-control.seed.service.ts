@@ -1,6 +1,7 @@
-import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, OnApplicationBootstrap } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { RoleEntity } from './entities/role.entity';
 import { PermissionEntity } from './entities/permission.entity';
 import { RolePermissionEntity } from './entities/role-permission.entity';
@@ -41,8 +42,10 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
 };
 
 @Injectable()
-export class AccessControlSeedService implements OnModuleInit {
+export class AccessControlSeedService implements OnApplicationBootstrap {
   constructor(
+    private readonly dataSource: DataSource,
+    private readonly config: ConfigService,
     @InjectRepository(RoleEntity)
     private readonly rolesRepo: Repository<RoleEntity>,
     @InjectRepository(PermissionEntity)
@@ -55,12 +58,26 @@ export class AccessControlSeedService implements OnModuleInit {
     private readonly accessControlRepo: AccessControlRepositoryPort,
   ) {}
 
-  async onModuleInit() {
+  async onApplicationBootstrap() {
+    await this.ensureSchemaReady();
+
     const count = await this.rolesRepo.count();
     if (count === 0) {
       await this.seedRolesAndPermissions();
     }
     await this.ensureAdminRoleAssignments();
+  }
+
+  private async ensureSchemaReady() {
+    const shouldSync =
+      this.config.get<string>('nodeEnv') !== 'production' ||
+      this.config.get<boolean>('dbSyncOnStart') === true;
+    if (!shouldSync) return;
+
+    if (!this.dataSource.isInitialized) {
+      await this.dataSource.initialize();
+    }
+    await this.dataSource.synchronize();
   }
 
   private async seedRolesAndPermissions() {
