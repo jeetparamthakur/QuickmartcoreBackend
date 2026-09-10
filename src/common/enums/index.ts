@@ -166,6 +166,22 @@ export enum CouponType {
   FIXED = 'FIXED',
 }
 
+export enum CouponScopeType {
+  GLOBAL = 'GLOBAL',
+  STORE = 'STORE',
+  INDEPENDENT_SELLER = 'INDEPENDENT_SELLER',
+}
+
+export enum CouponFundingSource {
+  PLATFORM = 'PLATFORM',
+  SELLER = 'SELLER',
+}
+
+export enum CouponCreatedByType {
+  ADMIN = 'ADMIN',
+  SELLER = 'SELLER',
+}
+
 export enum OfferStatus {
   ACTIVE = 'ACTIVE',
   INACTIVE = 'INACTIVE',
@@ -232,4 +248,10 @@ export enum ApprovalStatus {
 export enum PartnerType {
   STORE = 'STORE',
   INDEPENDENT_SELLER = 'INDEPENDENT_SELLER',
+}
+
+export enum StaffRole {
+  STORE_MANAGER = 'store_manager',
+  ORDER_MANAGER = 'order_manager',
+  INVENTORY_MANAGER = 'inventory_manager',
 }

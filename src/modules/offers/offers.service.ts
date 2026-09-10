@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { OfferEntity } from './entities/offer.entity';
+import { OfferStatus } from '../../common/enums';
 
 @Injectable()
 export class OffersRepository {
@@ -12,6 +13,17 @@ export class OffersRepository {
 
   findAll() {
     return this.repo.find({ order: { createdAt: 'DESC' } });
+  }
+
+  findActive() {
+    const now = new Date();
+    return this.repo
+      .createQueryBuilder('o')
+      .where('o.status = :status', { status: OfferStatus.ACTIVE })
+      .andWhere('(o.starts_at IS NULL OR o.starts_at <= :now)', { now })
+      .andWhere('(o.expires_at IS NULL OR o.expires_at >= :now)', { now })
+      .orderBy('o.created_at', 'DESC')
+      .getMany();
   }
 
   findById(id: string) {
@@ -40,10 +52,17 @@ export class OffersService {
     return this.repo.findAll();
   }
 
+  listActive() {
+    return this.repo.findActive();
+  }
+
   async get(id: string) {
     const offer = await this.repo.findById(id);
     if (!offer) {
-      throw new NotFoundException({ message: 'Offer not found', errorCode: 'OFFER_NOT_FOUND' });
+      throw new NotFoundException({
+        message: 'Offer not found',
+        errorCode: 'OFFER_NOT_FOUND',
+      });
     }
     return offer;
   }

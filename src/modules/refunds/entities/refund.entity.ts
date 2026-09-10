@@ -18,7 +18,12 @@ export class RefundEntity extends BaseEntity {
   @Column({ type: 'text', nullable: true })
   reason?: string | null;
 
-  @Column({ name: 'provider_ref', type: 'varchar', length: 255, nullable: true })
+  @Column({
+    name: 'provider_ref',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
   providerRef?: string | null;
 
   @ManyToOne(() => PaymentEntity)

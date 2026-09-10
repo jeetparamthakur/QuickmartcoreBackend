@@ -13,6 +13,21 @@ export interface ChargeEvaluationContext {
   zoneId?: string | null;
 }
 
+export interface ChargeLineItem {
+  code: string;
+  name: string;
+  type: ChargeType;
+  amount: number;
+}
+
+type ChargeConditions = {
+  maxCartTotal?: number;
+  minCartValue?: number;
+  minDistanceKm?: number;
+  maxDistanceKm?: number;
+  zoneId?: string;
+};
+
 @Injectable()
 export class ChargesRepository {
   constructor(
@@ -47,55 +62,98 @@ export class ChargesRepository {
 export class ChargesEngineService {
   constructor(private readonly repo: ChargesRepository) {}
 
-  async evaluateCharges(cartTotal: number, context?: Partial<ChargeEvaluationContext>): Promise<number> {
-    const rules = await this.repo.findActiveChargeRules();
-    let total = 0;
+  private ruleMatches(
+    rule: ChargeRuleEntity,
+    cartTotal: number,
+    context?: Partial<ChargeEvaluationContext>,
+  ): boolean {
+    const conditions = rule.conditions as ChargeConditions;
 
-    for (const rule of rules) {
-      const conditions = rule.conditions as {
-        maxCartTotal?: number;
-        minDistanceKm?: number;
-        maxDistanceKm?: number;
-        zoneId?: string;
-      };
+    if (
+      conditions.maxCartTotal !== undefined &&
+      cartTotal >= conditions.maxCartTotal
+    ) {
+      return false;
+    }
 
+    if (
+      conditions.minCartValue !== undefined &&
+      cartTotal < conditions.minCartValue
+    ) {
+      return false;
+    }
+
+    if (context?.distanceKm !== undefined) {
       if (
-        conditions.maxCartTotal !== undefined &&
-        cartTotal >= conditions.maxCartTotal
+        conditions.minDistanceKm !== undefined &&
+        context.distanceKm < conditions.minDistanceKm
       ) {
-        continue;
+        return false;
       }
-
-      if (context?.distanceKm !== undefined) {
-        if (
-          conditions.minDistanceKm !== undefined &&
-          context.distanceKm < conditions.minDistanceKm
-        ) {
-          continue;
-        }
-        if (
-          conditions.maxDistanceKm !== undefined &&
-          context.distanceKm > conditions.maxDistanceKm
-        ) {
-          continue;
-        }
-      }
-
-      if (context?.zoneId && conditions.zoneId && conditions.zoneId !== context.zoneId) {
-        continue;
-      }
-
-      if (rule.type === ChargeType.FIXED) {
-        total += parseFloat(rule.value);
-      } else if (rule.type === ChargeType.PERCENTAGE) {
-        total += (cartTotal * parseFloat(rule.value)) / 100;
+      if (
+        conditions.maxDistanceKm !== undefined &&
+        context.distanceKm > conditions.maxDistanceKm
+      ) {
+        return false;
       }
     }
 
-    return total;
+    if (
+      context?.zoneId &&
+      conditions.zoneId &&
+      conditions.zoneId !== context.zoneId
+    ) {
+      return false;
+    }
+
+    return true;
   }
 
-  async calculateDeliveryFee(distanceKm = 3, zoneId?: string | null): Promise<number> {
+  private computeRuleAmount(rule: ChargeRuleEntity, cartTotal: number): number {
+    if (rule.type === ChargeType.FIXED) {
+      return parseFloat(rule.value);
+    }
+    if (rule.type === ChargeType.PERCENTAGE) {
+      return (cartTotal * parseFloat(rule.value)) / 100;
+    }
+    return 0;
+  }
+
+  async evaluateChargeLines(
+    cartTotal: number,
+    context?: Partial<ChargeEvaluationContext>,
+  ): Promise<ChargeLineItem[]> {
+    const rules = await this.repo.findActiveChargeRules();
+    const lines: ChargeLineItem[] = [];
+
+    for (const rule of rules) {
+      if (!this.ruleMatches(rule, cartTotal, context)) {
+        continue;
+      }
+
+      lines.push({
+        code: rule.code,
+        name: rule.name,
+        type: rule.type,
+        amount: this.computeRuleAmount(rule, cartTotal),
+      });
+    }
+
+    return lines;
+  }
+
+  async evaluateCharges(
+    cartTotal: number,
+    context?: Partial<ChargeEvaluationContext>,
+  ): Promise<number> {
+    const lines = await this.evaluateChargeLines(cartTotal, context);
+    return lines.reduce((sum, line) => sum + line.amount, 0);
+  }
+
+  async calculateDeliveryFee(
+    distanceKm = 3,
+    zoneId?: string | null,
+  ): Promise<number> {
     const slabs = await this.repo.findActiveDeliverySlabs(zoneId);
 
     if (slabs.length === 0) {

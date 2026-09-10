@@ -4,7 +4,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { UserType, UserStatus } from '../../common/enums';
+import { ApprovalStatus, UserType, UserStatus } from '../../common/enums';
 import { USERS_REPOSITORY } from '../users/users.repository.port';
 import type { UsersRepositoryPort } from '../users/users.repository.port';
 import { CUSTOMERS_REPOSITORY } from '../customers/customers.repository.port';
@@ -17,18 +17,31 @@ import { TokenService } from './token.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AdminProfileEntity } from '../admin/entities/admin-profile.entity';
-import { CustomerLoginDto, CustomerRegisterDto, OtpSendDto, OtpVerifyDto } from './dto/auth.dto';
+import {
+  CustomerLoginDto,
+  CustomerRegisterDto,
+  OtpSendDto,
+  OtpVerifyDto,
+} from './dto/auth.dto';
 import { OtpService } from '../otp/otp.service';
 import { SellerProfileEntity } from '../sellers/entities/seller-profile.entity';
 import { StoreOwnerProfileEntity } from '../stores/entities/store-owner-profile.entity';
 import { DeliveryPartnerProfileEntity } from '../delivery-partners/entities/delivery-partner-profile.entity';
 import { DeliveryPartnerPreference } from '../../common/enums';
 
+const OTP_ACCOUNT_TYPES: UserType[] = [
+  UserType.CUSTOMER,
+  UserType.SELLER,
+  UserType.STORE_OWNER,
+  UserType.DELIVERY_PARTNER,
+];
+
 @Injectable()
 export class AuthService {
   constructor(
     @Inject(USERS_REPOSITORY) private usersRepo: UsersRepositoryPort,
-    @Inject(CUSTOMERS_REPOSITORY) private customersRepo: CustomersRepositoryPort,
+    @Inject(CUSTOMERS_REPOSITORY)
+    private customersRepo: CustomersRepositoryPort,
     @Inject(ACCESS_CONTROL_REPOSITORY)
     private accessControlRepo: AccessControlRepositoryPort,
     @Inject(SESSIONS_REPOSITORY) private sessionsRepo: SessionsRepositoryPort,
@@ -119,12 +132,24 @@ export class AuthService {
     }
 
     const userType = dto.userType ?? UserType.CUSTOMER;
-    let user = await this.usersRepo.findByPhone(phone);
+    if (!OTP_ACCOUNT_TYPES.includes(userType)) {
+      throw new UnauthorizedException({
+        message: 'Invalid account type',
+        errorCode: 'INVALID_ACCOUNT_TYPE',
+      });
+    }
+
+    const lookupTypes =
+      userType === UserType.SELLER || userType === UserType.STORE_OWNER
+        ? [UserType.SELLER, UserType.STORE_OWNER]
+        : [userType];
+
+    let user = await this.usersRepo.findByPhoneAndUserTypes(phone, lookupTypes);
     let isNewUser = false;
 
     if (!user) {
       isNewUser = true;
-      const placeholderEmail = `${phone.replace(/\D/g, '')}@phone.m3bd.local`;
+      const placeholderEmail = `${phone.replace(/\D/g, '')}.${userType.toLowerCase()}@phone.m3bd.local`;
       const passwordHash = await this.tokenService.hashPassword(
         `otp-${Date.now()}-${Math.random()}`,
       );
@@ -136,15 +161,17 @@ export class AuthService {
         status: UserStatus.ACTIVE,
       });
       await this.accessControlRepo.assignRole(user.id, userType);
-      await this.createProfileForUser(user.id, userType, dto.fullName ?? 'User');
-    } else if (user.userType !== userType) {
-      throw new UnauthorizedException({
-        message: 'Phone registered for a different account type',
-        errorCode: 'ROLE_MISMATCH',
-      });
+      await this.createProfileForUser(
+        user.id,
+        userType,
+        dto.fullName ?? 'User',
+      );
     }
 
-    if (user.status === UserStatus.SUSPENDED || user.status === UserStatus.BLOCKED) {
+    if (
+      user.status === UserStatus.SUSPENDED ||
+      user.status === UserStatus.BLOCKED
+    ) {
       throw new UnauthorizedException({
         message: 'Account suspended',
         errorCode: 'USER_SUSPENDED',
@@ -152,7 +179,11 @@ export class AuthService {
     }
 
     await this.usersRepo.update(user.id, { lastLoginAt: new Date() });
-    const session = await this.createSession(user.id, user.email, user.userType);
+    const session = await this.createSession(
+      user.id,
+      user.email,
+      user.userType,
+    );
     return { ...session, isNewUser };
   }
 
@@ -181,6 +212,7 @@ export class AuthService {
             userId,
             fullName,
             preference: DeliveryPartnerPreference.BOTH,
+            approvalStatus: ApprovalStatus.PENDING,
             isOnline: false,
           }),
         );
@@ -220,6 +252,7 @@ export class AuthService {
       });
     }
 
+    await this.accessControlRepo.assignRole(user.id, expectedType);
     await this.usersRepo.update(user.id, { lastLoginAt: new Date() });
     return this.createSession(user.id, user.email, user.userType);
   }
@@ -278,7 +311,8 @@ export class AuthService {
 
     if (user.userType === UserType.CUSTOMER) {
       const profile = await this.customersRepo.findByUserId(userId);
-      const permissions = await this.accessControlRepo.getPermissionsForUser(userId);
+      const permissions =
+        await this.accessControlRepo.getPermissionsForUser(userId);
       return {
         user: {
           id: user.id,
@@ -307,7 +341,9 @@ export class AuthService {
     }
 
     if (user.userType === UserType.STORE_OWNER) {
-      const profile = await this.storeOwnerProfiles.findOne({ where: { userId } });
+      const profile = await this.storeOwnerProfiles.findOne({
+        where: { userId },
+      });
       return {
         user: {
           id: user.id,
@@ -321,7 +357,9 @@ export class AuthService {
     }
 
     if (user.userType === UserType.DELIVERY_PARTNER) {
-      const profile = await this.deliveryPartnerProfiles.findOne({ where: { userId } });
+      const profile = await this.deliveryPartnerProfiles.findOne({
+        where: { userId },
+      });
       return {
         user: {
           id: user.id,
@@ -345,17 +383,23 @@ export class AuthService {
         email: user.email,
         role: user.userType,
       },
-      session: { id: 'current', expiresAt: new Date(Date.now() + 86400000).toISOString() },
+      session: {
+        id: 'current',
+        expiresAt: new Date(Date.now() + 86400000).toISOString(),
+      },
     };
   }
 
-  private async createSession(userId: string, email: string, userType: UserType) {
-    const refreshTokenRaw = this.tokenService.generateRefreshTokenRaw();
+  private async createSession(
+    userId: string,
+    email: string,
+    userType: UserType,
+  ) {
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
     const session = await this.sessionsRepo.create({
       userId,
-      refreshTokenHash: this.tokenService.hashRefreshToken(refreshTokenRaw),
+      refreshTokenHash: '',
       expiresAt,
     });
 
@@ -371,8 +415,15 @@ export class AuthService {
       sessionId: session.id,
     });
 
+    await this.sessionsRepo.updateRefreshTokenHash(
+      session.id,
+      this.tokenService.hashRefreshToken(refreshToken),
+    );
+
     const profile = await this.customersRepo.findByUserId(userId);
-    const adminProfile = await this.adminProfiles.findOne({ where: { userId } });
+    const adminProfile = await this.adminProfiles.findOne({
+      where: { userId },
+    });
 
     return {
       user: {

@@ -25,6 +25,7 @@ export class PaymentsRepository implements PaymentsRepositoryPort {
 
   async update(id: string, data: Partial<PaymentEntity>) {
     const { parentOrder: _parentOrder, ...updateData } = data;
+    void _parentOrder;
     await this.repo.update(id, updateData);
     const updated = await this.findById(id);
     return updated!;

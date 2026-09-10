@@ -10,7 +10,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { IsInt, IsUUID, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, IsUUID, Min } from 'class-validator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
@@ -35,6 +35,17 @@ class UpdateCartItemDto {
   @IsInt()
   @Min(0)
   quantity!: number;
+}
+
+class ApplyCouponDto {
+  @IsString()
+  code!: string;
+}
+
+class PreviewCartDto {
+  @IsOptional()
+  @IsString()
+  couponCode?: string;
 }
 
 @Controller('customer/cart')
@@ -89,7 +100,25 @@ export class CartController {
 
   @Post('preview')
   @RequirePermissions('cart:read')
-  preview(@Req() req: { user: AuthenticatedUser }) {
-    return this.cartService.previewCheckout(req.user.id);
+  preview(
+    @Req() req: { user: AuthenticatedUser },
+    @Body() dto: PreviewCartDto,
+  ) {
+    return this.cartService.previewCheckout(req.user.id, dto.couponCode);
+  }
+
+  @Post('coupon')
+  @RequirePermissions('cart:write')
+  applyCoupon(
+    @Req() req: { user: AuthenticatedUser },
+    @Body() dto: ApplyCouponDto,
+  ) {
+    return this.cartService.applyCoupon(req.user.id, dto.code);
+  }
+
+  @Delete('coupon')
+  @RequirePermissions('cart:write')
+  removeCoupon(@Req() req: { user: AuthenticatedUser }) {
+    return this.cartService.removeCoupon(req.user.id);
   }
 }

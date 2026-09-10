@@ -19,13 +19,20 @@ export class SessionsRepository implements SessionsRepositoryPort {
     return this.repo.findOne({ where: { id } });
   }
 
+  async updateRefreshTokenHash(id: string, refreshTokenHash: string) {
+    await this.repo.update(id, { refreshTokenHash });
+  }
+
   async revoke(id: string) {
     await this.repo.update(id, { revokedAt: new Date() });
   }
 
   async revokeAllForUser(userId: string) {
-    await this.repo.update({ userId, revokedAt: null as unknown as undefined }, {
-      revokedAt: new Date(),
-    });
+    await this.repo.update(
+      { userId, revokedAt: null as unknown as undefined },
+      {
+        revokedAt: new Date(),
+      },
+    );
   }
 }

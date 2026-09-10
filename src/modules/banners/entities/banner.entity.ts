@@ -13,7 +13,11 @@ export class BannerEntity extends BaseEntity {
   @Column({ name: 'link_url', type: 'varchar', length: 500, nullable: true })
   linkUrl?: string | null;
 
-  @Column({ type: 'enum', enum: BannerPlacement, default: BannerPlacement.HOME_TOP })
+  @Column({
+    type: 'enum',
+    enum: BannerPlacement,
+    default: BannerPlacement.HOME_TOP,
+  })
   placement!: BannerPlacement;
 
   @Column({ name: 'sort_order', type: 'int', default: 0 })

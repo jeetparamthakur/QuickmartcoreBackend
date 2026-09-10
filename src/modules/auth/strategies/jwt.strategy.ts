@@ -5,7 +5,10 @@ import { ConfigService } from '@nestjs/config';
 import { Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { JwtPayload, AuthenticatedUser } from '../../../common/decorators/auth.decorators';
+import {
+  JwtPayload,
+  AuthenticatedUser,
+} from '../../../common/decorators/auth.decorators';
 import { ACCESS_CONTROL_REPOSITORY } from '../../access-control/access-control.repository';
 import type { AccessControlRepositoryPort } from '../../access-control/access-control.repository';
 import { USERS_REPOSITORY } from '../../users/users.repository.port';
@@ -42,7 +45,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   async validate(payload: JwtPayload): Promise<AuthenticatedUser> {
     const user = await this.usersRepo.findById(payload.sub);
     if (!user) throw new Error('User not found');
-    const permissions = await this.accessControlRepo.getPermissionsForUser(user.id);
+    const permissions = await this.accessControlRepo.getPermissionsForUser(
+      user.id,
+    );
 
     const base: AuthenticatedUser = {
       id: user.id,
@@ -53,16 +58,24 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     };
 
     if (user.userType === UserType.CUSTOMER) {
-      const profile = await this.customerProfiles.findOne({ where: { userId: user.id } });
+      const profile = await this.customerProfiles.findOne({
+        where: { userId: user.id },
+      });
       base.customerProfileId = profile?.id;
     } else if (user.userType === UserType.SELLER) {
-      const profile = await this.sellerProfiles.findOne({ where: { userId: user.id } });
+      const profile = await this.sellerProfiles.findOne({
+        where: { userId: user.id },
+      });
       base.sellerProfileId = profile?.id;
     } else if (user.userType === UserType.STORE_OWNER) {
-      const profile = await this.storeOwnerProfiles.findOne({ where: { userId: user.id } });
+      const profile = await this.storeOwnerProfiles.findOne({
+        where: { userId: user.id },
+      });
       base.storeOwnerProfileId = profile?.id;
     } else if (user.userType === UserType.DELIVERY_PARTNER) {
-      const profile = await this.deliveryPartnerProfiles.findOne({ where: { userId: user.id } });
+      const profile = await this.deliveryPartnerProfiles.findOne({
+        where: { userId: user.id },
+      });
       base.partnerProfileId = profile?.id;
     }
 

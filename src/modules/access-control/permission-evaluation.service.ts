@@ -10,7 +10,10 @@ export class PermissionEvaluationService {
   ): boolean {
     if (userType === UserType.SUPER_ADMIN) return true;
     if (permissions.includes('superadmin:all')) return true;
-    if (permissions.includes('admin:all') && required.every((p) => !p.startsWith('superadmin:'))) {
+    if (
+      permissions.includes('admin:all') &&
+      required.every((p) => !p.startsWith('superadmin:'))
+    ) {
       return true;
     }
     return required.every((p) => permissions.includes(p));

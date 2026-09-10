@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
+import { UserType } from '../../common/enums';
 import { UserEntity } from './entities/user.entity';
 import { UsersRepositoryPort } from './users.repository.port';
 
@@ -21,6 +22,13 @@ export class UsersRepository implements UsersRepositoryPort {
 
   findByPhone(phone: string): Promise<UserEntity | null> {
     return this.repo.findOne({ where: { phone } });
+  }
+
+  findByPhoneAndUserTypes(
+    phone: string,
+    userTypes: UserType[],
+  ): Promise<UserEntity | null> {
+    return this.repo.findOne({ where: { phone, userType: In(userTypes) } });
   }
 
   async create(data: Partial<UserEntity>): Promise<UserEntity> {

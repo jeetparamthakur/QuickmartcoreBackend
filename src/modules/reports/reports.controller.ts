@@ -1,7 +1,10 @@
 import { Body, Controller, Get, Param, Post, Req } from '@nestjs/common';
 import { IsObject, IsOptional, IsString } from 'class-validator';
 import { ReportsService } from './reports.service';
-import { AuthenticatedUser, RequirePermissions } from '../../common/decorators/auth.decorators';
+import {
+  AuthenticatedUser,
+  RequirePermissions,
+} from '../../common/decorators/auth.decorators';
 
 class EnqueueReportDto {
   @IsString()

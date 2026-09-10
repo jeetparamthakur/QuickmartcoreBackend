@@ -1,10 +1,13 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { RoleEntity } from './entities/role.entity';
 import { PermissionEntity } from './entities/permission.entity';
 import { RolePermissionEntity } from './entities/role-permission.entity';
 import { UserType } from '../../common/enums';
+import { UserEntity } from '../users/entities/user.entity';
+import { ACCESS_CONTROL_REPOSITORY } from './access-control.repository';
+import type { AccessControlRepositoryPort } from './access-control.repository';
 
 const PERMISSIONS = [
   { key: 'cart:read', description: 'View cart' },
@@ -19,9 +22,19 @@ const PERMISSIONS = [
 ];
 
 const ROLE_PERMISSIONS: Record<string, string[]> = {
-  CUSTOMER: ['cart:read', 'cart:write', 'orders:read', 'orders:write', 'products:read'],
+  CUSTOMER: [
+    'cart:read',
+    'cart:write',
+    'orders:read',
+    'orders:write',
+    'products:read',
+  ],
   SELLER: ['seller:products:write', 'seller:inventory:write', 'products:read'],
-  STORE_OWNER: ['seller:products:write', 'seller:inventory:write', 'products:read'],
+  STORE_OWNER: [
+    'seller:products:write',
+    'seller:inventory:write',
+    'products:read',
+  ],
   DELIVERY_PARTNER: ['products:read'],
   ADMIN: ['admin:all', 'products:read'],
   SUPER_ADMIN: ['superadmin:all', 'admin:all', 'products:read'],
@@ -36,12 +49,21 @@ export class AccessControlSeedService implements OnModuleInit {
     private readonly permissionsRepo: Repository<PermissionEntity>,
     @InjectRepository(RolePermissionEntity)
     private readonly rolePermissionsRepo: Repository<RolePermissionEntity>,
+    @InjectRepository(UserEntity)
+    private readonly usersRepo: Repository<UserEntity>,
+    @Inject(ACCESS_CONTROL_REPOSITORY)
+    private readonly accessControlRepo: AccessControlRepositoryPort,
   ) {}
 
   async onModuleInit() {
     const count = await this.rolesRepo.count();
-    if (count > 0) return;
+    if (count === 0) {
+      await this.seedRolesAndPermissions();
+    }
+    await this.ensureAdminRoleAssignments();
+  }
 
+  private async seedRolesAndPermissions() {
     const permissionMap = new Map<string, PermissionEntity>();
     for (const p of PERMISSIONS) {
       const saved = await this.permissionsRepo.save(
@@ -65,6 +87,19 @@ export class AccessControlSeedService implements OnModuleInit {
           }),
         );
       }
+    }
+  }
+
+  private async ensureAdminRoleAssignments() {
+    const panelUsers = await this.usersRepo.find({
+      where: {
+        userType: In([UserType.ADMIN, UserType.SUPER_ADMIN]),
+      },
+      select: ['id', 'userType'],
+    });
+
+    for (const user of panelUsers) {
+      await this.accessControlRepo.assignRole(user.id, user.userType);
     }
   }
 }

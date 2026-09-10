@@ -1,9 +1,10 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { PricingEngineService } from './pricing-engine.service';
 import { ChargesModule } from '../charges/charges.module';
+import { CouponsModule } from '../coupons/coupons.module';
 
 @Module({
-  imports: [ChargesModule],
+  imports: [ChargesModule, forwardRef(() => CouponsModule)],
   providers: [PricingEngineService],
   exports: [PricingEngineService, ChargesModule],
 })

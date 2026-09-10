@@ -4,6 +4,7 @@ import { RoleEntity } from './entities/role.entity';
 import { PermissionEntity } from './entities/permission.entity';
 import { RolePermissionEntity } from './entities/role-permission.entity';
 import { UserRoleEntity } from './entities/user-role.entity';
+import { UserEntity } from '../users/entities/user.entity';
 import { AccessControlSeedService } from './access-control.seed.service';
 import {
   AccessControlRepository,
@@ -19,6 +20,7 @@ import { PermissionEvaluationService } from './permission-evaluation.service';
       PermissionEntity,
       RolePermissionEntity,
       UserRoleEntity,
+      UserEntity,
     ]),
   ],
   providers: [

@@ -40,7 +40,9 @@ export class AccessControlRepository implements AccessControlRepositoryPort {
       .where('rp.role_id IN (:...roleIds)', { roleIds })
       .getMany();
 
-    const permissionIds = [...new Set(rolePermissions.map((rp) => rp.permissionId))];
+    const permissionIds = [
+      ...new Set(rolePermissions.map((rp) => rp.permissionId)),
+    ];
     if (permissionIds.length === 0) return [];
 
     const permissions = await this.permissionsRepo

@@ -30,6 +30,7 @@ export class PayoutsRepository {
 
   update(id: string, data: Partial<PayoutEntity>) {
     const { metadata: _m, ...updateData } = data;
+    void _m;
     return this.repo.update(id, updateData);
   }
 }

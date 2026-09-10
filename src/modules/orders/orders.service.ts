@@ -7,6 +7,7 @@ import { OrderItemEntity } from './entities/order-item.entity';
 import { OrderStatusHistoryEntity } from './entities/order-status-history.entity';
 import {
   ActorType,
+  CouponFundingSource,
   ParentOrderStatus,
   PaymentStatus,
   SellerType,
@@ -14,6 +15,8 @@ import {
 } from '../../common/enums';
 import { OrderStateMachineService } from './order-state-machine.service';
 import { PricingBreakdown } from '../pricing/pricing-engine.service';
+import { CommissionEngineService } from '../commission/commission-engine.service';
+import { CouponEngineService } from '../coupons/coupon-engine.service';
 
 export interface CreateOrderInput {
   customerId: string;
@@ -37,6 +40,8 @@ export class OrdersRepository {
     private readonly subOrders: Repository<SubOrderEntity>,
     @InjectDataSource()
     private readonly dataSource: DataSource,
+    private readonly commissionEngine: CommissionEngineService,
+    private readonly couponEngine: CouponEngineService,
   ) {}
 
   private orderCounter = 10000;
@@ -61,8 +66,16 @@ export class OrdersRepository {
           deliveryFee: input.pricing.deliveryFee.toFixed(2),
           taxTotal: input.pricing.taxTotal.toFixed(2),
           platformFee: input.pricing.platformFee.toFixed(2),
+          chargeBreakdown: input.pricing.charges.map((charge) => ({
+            code: charge.code,
+            name: charge.name,
+            type: charge.type,
+            amount: charge.amount,
+          })),
           totalPayable: input.pricing.totalPayable.toFixed(2),
           paymentStatus: PaymentStatus.PENDING,
+          couponId: input.pricing.couponId ?? null,
+          couponCode: input.pricing.couponCode ?? null,
         }),
       );
 
@@ -93,6 +106,24 @@ export class OrdersRepository {
           0,
         );
 
+        const targetId =
+          first.sellerType === SellerType.STORE
+            ? (first.storeId ?? undefined)
+            : (first.independentSellerId ?? undefined);
+
+        const groupDiscount = groupPricing?.discountTotal ?? 0;
+        const commissionBase =
+          input.pricing.fundingSource === CouponFundingSource.SELLER
+            ? Math.max(subtotal - groupDiscount, 0)
+            : subtotal;
+
+        const commissionAmount =
+          await this.commissionEngine.calculateCommission({
+            sellerType: first.sellerType,
+            orderAmount: commissionBase,
+            targetId,
+          });
+
         const subOrder = await manager.save(
           manager.create(SubOrderEntity, {
             parentOrderId: parent.id,
@@ -102,8 +133,9 @@ export class OrdersRepository {
             orderNumber: `${parentNumber}-${idx}`,
             status: SubOrderStatus.PLACED,
             subtotal: subtotal.toFixed(2),
+            discountTotal: groupDiscount.toFixed(2),
             deliveryFee: (groupPricing?.deliveryFee ?? 0).toFixed(2),
-            commissionAmount: '0',
+            commissionAmount: commissionAmount.toFixed(2),
           }),
         );
 
@@ -131,6 +163,15 @@ export class OrdersRepository {
 
         subOrders.push(subOrder);
         idx += 1;
+      }
+
+      if (input.pricing.couponId && input.pricing.discountTotal > 0) {
+        await this.couponEngine.recordRedemption(
+          input.pricing.couponId,
+          input.customerId,
+          parent.id,
+          input.pricing.discountTotal,
+        );
       }
 
       return { parent, subOrders };
@@ -234,7 +275,10 @@ export class OrdersService {
     const order = await this.getCustomerOrder(parentOrderId, customerId);
     for (const sub of order.subOrders ?? []) {
       if (this.stateMachine.canCancel(sub.status)) {
-        this.stateMachine.assertTransition(sub.status, SubOrderStatus.CANCELLED);
+        this.stateMachine.assertTransition(
+          sub.status,
+          SubOrderStatus.CANCELLED,
+        );
         await this.repo.updateSubOrderStatus(
           sub.id,
           SubOrderStatus.CANCELLED,

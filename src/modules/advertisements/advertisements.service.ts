@@ -43,7 +43,10 @@ export class AdvertisementsService {
   async get(id: string) {
     const ad = await this.repo.findById(id);
     if (!ad) {
-      throw new NotFoundException({ message: 'Advertisement not found', errorCode: 'AD_NOT_FOUND' });
+      throw new NotFoundException({
+        message: 'Advertisement not found',
+        errorCode: 'AD_NOT_FOUND',
+      });
     }
     return ad;
   }

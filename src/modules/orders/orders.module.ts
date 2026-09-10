@@ -9,6 +9,8 @@ import { OrdersService, OrdersRepository } from './orders.service';
 import { OrderStateMachineService } from './order-state-machine.service';
 import { CustomersModule } from '../customers/customers.module';
 import { InventoryModule } from '../inventory/inventory.module';
+import { CommissionModule } from '../commission/commission.module';
+import { CouponsModule } from '../coupons/coupons.module';
 
 @Module({
   imports: [
@@ -20,6 +22,8 @@ import { InventoryModule } from '../inventory/inventory.module';
     ]),
     CustomersModule,
     InventoryModule,
+    CommissionModule,
+    CouponsModule,
   ],
   controllers: [OrdersController],
   providers: [OrdersService, OrdersRepository, OrderStateMachineService],

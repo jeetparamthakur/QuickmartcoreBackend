@@ -9,7 +9,10 @@ import {
 } from '@nestjs/common';
 import { IsEnum, IsString, IsUUID } from 'class-validator';
 import { PayoutsService } from './payouts.service';
-import { RequirePermissions, AuthenticatedUser } from '../../common/decorators/auth.decorators';
+import {
+  RequirePermissions,
+  AuthenticatedUser,
+} from '../../common/decorators/auth.decorators';
 import { SellerType } from '../../common/enums';
 
 class CreatePayoutDto {

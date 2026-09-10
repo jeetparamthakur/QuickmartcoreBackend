@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { BannerPlacement } from '../../common/enums';
 import { BannerEntity } from './entities/banner.entity';
 
 @Injectable()
@@ -14,8 +15,14 @@ export class BannersRepository {
     return this.repo.find({ order: { sortOrder: 'ASC' } });
   }
 
-  findActive() {
-    return this.repo.find({ where: { isActive: true }, order: { sortOrder: 'ASC' } });
+  findActive(placement?: BannerPlacement) {
+    const where: { isActive: boolean; placement?: BannerPlacement } = {
+      isActive: true,
+    };
+    if (placement) {
+      where.placement = placement;
+    }
+    return this.repo.find({ where, order: { sortOrder: 'ASC' } });
   }
 
   findById(id: string) {
@@ -44,14 +51,17 @@ export class BannersService {
     return this.repo.findAll();
   }
 
-  listActive() {
-    return this.repo.findActive();
+  listActive(placement?: BannerPlacement) {
+    return this.repo.findActive(placement);
   }
 
   async get(id: string) {
     const banner = await this.repo.findById(id);
     if (!banner) {
-      throw new NotFoundException({ message: 'Banner not found', errorCode: 'BANNER_NOT_FOUND' });
+      throw new NotFoundException({
+        message: 'Banner not found',
+        errorCode: 'BANNER_NOT_FOUND',
+      });
     }
     return banner;
   }

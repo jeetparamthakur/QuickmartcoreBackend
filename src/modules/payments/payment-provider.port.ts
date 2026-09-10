@@ -5,7 +5,10 @@ export interface PaymentProviderResult {
 }
 
 export interface PaymentProviderPort {
-  initiatePayment(amount: string, referenceId: string): Promise<PaymentProviderResult>;
+  initiatePayment(
+    amount: string,
+    referenceId: string,
+  ): Promise<PaymentProviderResult>;
   verifyPayment(providerRef: string): Promise<PaymentProviderResult>;
 }
 

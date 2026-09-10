@@ -7,10 +7,20 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
-import { IsBoolean, IsEnum, IsInt, IsOptional, IsString } from 'class-validator';
+import {
+  IsBoolean,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 import { BannersService } from './banners.service';
-import { Public, RequirePermissions } from '../../common/decorators/auth.decorators';
+import {
+  Public,
+  RequirePermissions,
+} from '../../common/decorators/auth.decorators';
 import { BannerPlacement } from '../../common/enums';
 
 class CreateBannerDto {
@@ -19,6 +29,10 @@ class CreateBannerDto {
 
   @IsString()
   imageUrl!: string;
+
+  @IsOptional()
+  @IsString()
+  linkUrl?: string;
 
   @IsOptional()
   @IsEnum(BannerPlacement)
@@ -51,7 +65,10 @@ export class BannersAdminController {
 
   @Patch(':id')
   @RequirePermissions('admin:all')
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: Partial<CreateBannerDto>) {
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: Partial<CreateBannerDto>,
+  ) {
     return this.service.update(id, dto);
   }
 
@@ -68,7 +85,7 @@ export class BannersController {
 
   @Public()
   @Get()
-  listActive() {
-    return this.service.listActive();
+  listActive(@Query('placement') placement?: BannerPlacement) {
+    return this.service.listActive(placement);
   }
 }

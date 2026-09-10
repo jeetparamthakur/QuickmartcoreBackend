@@ -9,7 +9,12 @@ export class OrderStatusHistoryEntity extends BaseEntity {
   @Column({ name: 'sub_order_id', type: 'uuid' })
   subOrderId!: string;
 
-  @Column({ name: 'from_status', type: 'enum', enum: SubOrderStatus, nullable: true })
+  @Column({
+    name: 'from_status',
+    type: 'enum',
+    enum: SubOrderStatus,
+    nullable: true,
+  })
   fromStatus?: SubOrderStatus | null;
 
   @Column({ name: 'to_status', type: 'enum', enum: SubOrderStatus })
@@ -24,7 +29,9 @@ export class OrderStatusHistoryEntity extends BaseEntity {
   @Column({ type: 'jsonb', default: {} })
   metadata!: Record<string, unknown>;
 
-  @ManyToOne(() => SubOrderEntity, (so) => so.statusHistory, { onDelete: 'CASCADE' })
+  @ManyToOne(() => SubOrderEntity, (so) => so.statusHistory, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'sub_order_id' })
   subOrder!: SubOrderEntity;
 }

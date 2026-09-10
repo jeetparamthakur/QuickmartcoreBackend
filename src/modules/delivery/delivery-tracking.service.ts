@@ -23,17 +23,23 @@ export class DeliveryTrackingRepository {
   }
 
   getRecentLocation(partnerProfileId: string, since: Date) {
-    return this.locations.findOne({
-      where: { partnerProfileId },
-      order: { recordedAt: 'DESC' },
-    }).then((loc) => (loc && loc.recordedAt >= since ? loc : null));
+    return this.locations
+      .findOne({
+        where: { partnerProfileId },
+        order: { recordedAt: 'DESC' },
+      })
+      .then((loc) => (loc && loc.recordedAt >= since ? loc : null));
   }
 
   saveLocation(data: Partial<PartnerLocationEntity>) {
     return this.locations.save(this.locations.create(data));
   }
 
-  updatePartnerCurrentLocation(partnerProfileId: string, lat: string, lng: string) {
+  updatePartnerCurrentLocation(
+    partnerProfileId: string,
+    lat: string,
+    lng: string,
+  ) {
     return this.partners.update(partnerProfileId, {
       currentLat: lat,
       currentLng: lng,

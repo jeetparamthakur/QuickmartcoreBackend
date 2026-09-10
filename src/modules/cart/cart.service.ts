@@ -5,7 +5,6 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { CartStatus, SellerType } from '../../common/enums';
-import { CartEntity } from './entities/cart.entity';
 import { CUSTOMERS_REPOSITORY } from '../customers/customers.repository.port';
 import type { CustomersRepositoryPort } from '../customers/customers.repository.port';
 import { ProductsRepository } from '../products/products.repository';
@@ -56,7 +55,8 @@ export class CartService {
       });
     }
 
-    const product = await this.productsRepo.findSellerProductById(sellerProductId);
+    const product =
+      await this.productsRepo.findSellerProductById(sellerProductId);
     if (!product) {
       throw new NotFoundException({
         message: 'Product not found',
@@ -138,19 +138,65 @@ export class CartService {
   async clearCart(userId: string) {
     const customerId = await this.getCustomerProfileId(userId);
     const cart = await this.cartRepo.findActiveByCustomerId(customerId);
-    if (cart) await this.cartRepo.deleteAllItems(cart.id);
+    if (cart) {
+      await this.cartRepo.deleteAllItems(cart.id);
+      cart.couponCode = null;
+      await this.cartRepo.saveCart(cart);
+    }
     return this.getCart(userId);
   }
 
+  async applyCoupon(userId: string, code: string) {
+    const customerId = await this.getCustomerProfileId(userId);
+    const cart = await this.getOrCreateCart(customerId);
+    if (!cart.items?.length) {
+      throw new BadRequestException({
+        message: 'Cart is empty',
+        errorCode: 'CART_EMPTY',
+      });
+    }
+
+    const flatItems = this.flattenCartItems(cart);
+    const pricing = await this.pricingEngine.calculateCheckout({
+      items: flatItems,
+      customerId,
+      couponCode: code,
+    });
+
+    cart.couponCode = pricing.couponCode ?? code.trim().toUpperCase();
+    await this.cartRepo.saveCart(cart);
+
+    return {
+      cart: this.formatCart(cart),
+      pricing,
+      coupon: {
+        code: pricing.couponCode,
+        discount: pricing.discountTotal,
+      },
+    };
+  }
+
+  async removeCoupon(userId: string) {
+    const customerId = await this.getCustomerProfileId(userId);
+    const cart = await this.cartRepo.findActiveByCustomerId(customerId);
+    if (cart) {
+      cart.couponCode = null;
+      await this.cartRepo.saveCart(cart);
+    }
+    return this.previewCheckout(userId);
+  }
+
   async validateCartForCheckout(userId: string) {
-    const cart = await this.getCart(userId);
+    const customerId = await this.getCustomerProfileId(userId);
+    const cartEntity = await this.getOrCreateCart(customerId);
+    const cart = this.formatCart(cartEntity);
     if (!cart.items.length) {
       throw new BadRequestException({
         message: 'Cart is empty',
         errorCode: 'CART_EMPTY',
       });
     }
-    return cart;
+    return { ...cart, couponCode: cartEntity.couponCode ?? null, customerId };
   }
 
   async markCheckoutComplete(userId: string) {
@@ -163,23 +209,37 @@ export class CartService {
     }
   }
 
-  async previewCheckout(userId: string) {
-    const cart = await this.validateCartForCheckout(userId);
-    const flatItems = cart.items.flatMap((group) =>
-      group.items.map((item) => ({
-        sellerProductId: item.sellerProductId,
-        quantity: item.quantity,
-        unitPrice: parseFloat(item.unitPrice),
-        sellerType: group.sellerType,
-        storeId: group.storeId ?? undefined,
-        independentSellerId: group.independentSellerId ?? undefined,
-      })),
-    );
-    const pricing = await this.pricingEngine.calculateCheckout({ items: flatItems });
-    return { cart, pricing };
+  async previewCheckout(userId: string, couponCodeOverride?: string) {
+    const customerId = await this.getCustomerProfileId(userId);
+    const cartEntity = await this.getOrCreateCart(customerId);
+    if (!cartEntity.items?.length) {
+      throw new BadRequestException({
+        message: 'Cart is empty',
+        errorCode: 'CART_EMPTY',
+      });
+    }
+
+    const couponCode =
+      couponCodeOverride?.trim() || cartEntity.couponCode || undefined;
+
+    if (couponCodeOverride) {
+      cartEntity.couponCode = couponCodeOverride.trim().toUpperCase();
+      await this.cartRepo.saveCart(cartEntity);
+    }
+
+    const flatItems = this.flattenCartItems(cartEntity);
+    const pricing = await this.pricingEngine.calculateCheckout({
+      items: flatItems,
+      customerId,
+      couponCode,
+    });
+
+    return { cart: this.formatCart(cartEntity), pricing };
   }
 
-  private formatCart(cart: Awaited<ReturnType<CartRepository['findActiveByCustomerId']>>) {
+  private flattenCartItems(
+    cart: Awaited<ReturnType<CartRepository['findActiveByCustomerId']>>,
+  ) {
     const items = cart?.items ?? [];
     const groups = new Map<string, typeof items>();
 
@@ -193,7 +253,36 @@ export class CartService {
       groups.get(key)!.push(item);
     }
 
-    const grouped = [...groups.entries()].map(([key, groupItems]) => {
+    return [...groups.values()].flatMap((groupItems) => {
+      const first = groupItems[0].sellerProduct;
+      return groupItems.map((item) => ({
+        sellerProductId: item.sellerProductId,
+        quantity: item.quantity,
+        unitPrice: parseFloat(item.unitPriceSnapshot),
+        sellerType: first.sellerType,
+        storeId: first.storeId ?? undefined,
+        independentSellerId: first.independentSellerId ?? undefined,
+      }));
+    });
+  }
+
+  private formatCart(
+    cart: Awaited<ReturnType<CartRepository['findActiveByCustomerId']>>,
+  ) {
+    const items = cart?.items ?? [];
+    const groups = new Map<string, typeof items>();
+
+    for (const item of items) {
+      const sp = item.sellerProduct;
+      const key =
+        sp.sellerType === SellerType.STORE
+          ? `store:${sp.storeId}`
+          : `independent:${sp.independentSellerId}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(item);
+    }
+
+    const grouped = [...groups.entries()].map(([, groupItems]) => {
       const first = groupItems[0].sellerProduct;
       return {
         sellerType: first.sellerType,
@@ -222,6 +311,7 @@ export class CartService {
       items: grouped,
       itemCount: items.reduce((s, i) => s + i.quantity, 0),
       subtotal: subtotal.toFixed(2),
+      couponCode: cart?.couponCode ?? null,
     };
   }
 }

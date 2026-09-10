@@ -18,11 +18,21 @@ export class PaymentEntity extends BaseEntity {
   @Column({ type: 'enum', enum: PaymentStatus, default: PaymentStatus.PENDING })
   status!: PaymentStatus;
 
-  @Column({ name: 'provider_ref', type: 'varchar', length: 255, nullable: true })
+  @Column({
+    name: 'provider_ref',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
   providerRef?: string | null;
 
   @Index({ unique: true })
-  @Column({ name: 'idempotency_key', type: 'varchar', length: 255, nullable: true })
+  @Column({
+    name: 'idempotency_key',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
   idempotencyKey?: string | null;
 
   @ManyToOne(() => ParentOrderEntity)

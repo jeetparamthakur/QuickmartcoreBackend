@@ -27,7 +27,11 @@ export class OtpService {
   sendOtp(phone: string): { success: boolean; devOtp?: string } {
     const key = this.normalizePhone(phone);
     const code = String(randomInt(100000, 999999));
-    this.store.set(key, { code, expiresAt: Date.now() + this.ttlMs, attempts: 0 });
+    this.store.set(key, {
+      code,
+      expiresAt: Date.now() + this.ttlMs,
+      attempts: 0,
+    });
 
     if (this.config.get<boolean>('otpDevMode')) {
       this.logger.log(`OTP for ${key}: ${code}`);

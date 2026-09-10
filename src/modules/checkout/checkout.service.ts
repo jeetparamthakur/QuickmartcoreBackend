@@ -1,8 +1,4 @@
-import {
-  ConflictException,
-  Inject,
-  Injectable,
-} from '@nestjs/common';
+import { ConflictException, Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CartService } from '../cart/cart.service';
@@ -13,8 +9,6 @@ import { CUSTOMERS_REPOSITORY } from '../customers/customers.repository.port';
 import type { CustomersRepositoryPort } from '../customers/customers.repository.port';
 import { IdempotencyKeyEntity } from '../audit-logs/entities/audit-log.entity';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { SellerType } from '../../common/enums';
-
 @Injectable()
 export class CheckoutService {
   constructor(
@@ -48,7 +42,7 @@ export class CheckoutService {
         sellerProductId: item.sellerProductId,
         quantity: item.quantity,
         unitPrice: parseFloat(item.unitPrice),
-        sellerType: group.sellerType as SellerType,
+        sellerType: group.sellerType,
         storeId: group.storeId,
         independentSellerId: group.independentSellerId,
       })),
@@ -56,6 +50,8 @@ export class CheckoutService {
 
     const pricing = await this.pricingEngine.calculateCheckout({
       items: flatItems,
+      customerId: profile.id,
+      couponCode: cart.couponCode ?? undefined,
     });
 
     const result = await this.ordersService.createOrders({

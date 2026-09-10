@@ -12,7 +12,9 @@ export class TokenService {
     private readonly config: ConfigService,
   ) {}
 
-  signAccessToken(payload: Omit<JwtPayload, 'sessionId'> & { sessionId: string }) {
+  signAccessToken(
+    payload: Omit<JwtPayload, 'sessionId'> & { sessionId: string },
+  ) {
     return this.jwtService.sign(payload, {
       secret: this.config.getOrThrow<string>('jwt.secret'),
       expiresIn: this.config.getOrThrow('jwt.accessExpiresIn'),

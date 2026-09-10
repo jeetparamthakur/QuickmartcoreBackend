@@ -14,10 +14,18 @@ export class NotificationEntity extends BaseEntity {
   @Column({ type: 'text' })
   body!: string;
 
-  @Column({ type: 'enum', enum: NotificationChannel, default: NotificationChannel.IN_APP })
+  @Column({
+    type: 'enum',
+    enum: NotificationChannel,
+    default: NotificationChannel.IN_APP,
+  })
   channel!: NotificationChannel;
 
-  @Column({ type: 'enum', enum: NotificationStatus, default: NotificationStatus.PENDING })
+  @Column({
+    type: 'enum',
+    enum: NotificationStatus,
+    default: NotificationStatus.PENDING,
+  })
   status!: NotificationStatus;
 
   @Column({ type: 'jsonb', default: {} })

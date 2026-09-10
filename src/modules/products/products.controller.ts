@@ -1,6 +1,6 @@
 import { Controller, Get, Param, ParseUUIDPipe, Query } from '@nestjs/common';
 import { Public } from '../../common/decorators/auth.decorators';
-import { PaginationDto } from '../../common/dto/pagination.dto';
+import { ListProductsQueryDto } from './dto/list-products-query.dto';
 import { ProductsService } from './products.service';
 
 @Controller('products')
@@ -9,18 +9,13 @@ export class ProductsController {
 
   @Public()
   @Get()
-  list(
-    @Query() pagination: PaginationDto,
-    @Query('categoryId') categoryId?: string,
-    @Query('storeId') storeId?: string,
-    @Query('q') q?: string,
-  ) {
+  list(@Query() query: ListProductsQueryDto) {
     return this.service.list(
-      pagination.page ?? 1,
-      pagination.limit ?? 20,
-      categoryId,
-      storeId,
-      q,
+      query.page ?? 1,
+      query.limit ?? 20,
+      query.categoryId,
+      query.storeId,
+      query.q,
     );
   }
 

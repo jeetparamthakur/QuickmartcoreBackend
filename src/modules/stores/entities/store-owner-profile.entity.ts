@@ -48,7 +48,9 @@ export class StoreOwnerProfileEntity extends BaseEntity {
   @Column({ name: 'bank_details', type: 'jsonb', nullable: true })
   bankDetails?: object | null;
 
-  @OneToOne(() => UserEntity, (u) => u.storeOwnerProfile, { onDelete: 'CASCADE' })
+  @OneToOne(() => UserEntity, (u) => u.storeOwnerProfile, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'user_id' })
   user!: UserEntity;
 }

@@ -10,7 +10,13 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { IsBoolean, IsEnum, IsObject, IsOptional, IsString } from 'class-validator';
+import {
+  IsBoolean,
+  IsEnum,
+  IsObject,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 import { UserType, UserStatus } from '../../common/enums';
 import { Roles } from '../../common/decorators/auth.decorators';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -159,10 +165,7 @@ export class SuperAdminController {
   }
 
   @Get('activity')
-  getActivity(
-    @Query('page') page?: string,
-    @Query('module') module?: string,
-  ) {
+  getActivity(@Query('page') page?: string, @Query('module') module?: string) {
     return this.adminControl.getActivity(parseInt(page ?? '1', 10), module);
   }
 
@@ -173,6 +176,11 @@ export class SuperAdminController {
 
   @Get('restriction-audit-logs')
   getRestrictionAuditLogs(@Query('page') page?: string) {
-    return { data: [], total: 0, page: parseInt(page ?? '1', 10), pageSize: 20 };
+    return {
+      data: [],
+      total: 0,
+      page: parseInt(page ?? '1', 10),
+      pageSize: 20,
+    };
   }
 }

@@ -13,6 +13,9 @@ import { ProductsModule } from '../products/products.module';
 import { InventoryModule } from '../inventory/inventory.module';
 import { KycModule } from '../kyc/kyc.module';
 import { WalletModule } from '../wallet/wallet.module';
+import { NotificationsModule } from '../notifications/notifications.module';
+import { CategoriesModule } from '../categories/categories.module';
+import { CommissionModule } from '../commission/commission.module';
 
 @Module({
   imports: [
@@ -29,6 +32,9 @@ import { WalletModule } from '../wallet/wallet.module';
     InventoryModule,
     KycModule,
     WalletModule,
+    CategoriesModule,
+    NotificationsModule,
+    CommissionModule,
   ],
   controllers: [SellerController],
   providers: [SellerService],

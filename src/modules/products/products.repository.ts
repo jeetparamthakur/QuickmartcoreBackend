@@ -17,13 +17,18 @@ export class ProductsRepository {
   async findSellerProductsPaginated(
     page: number,
     limit: number,
-    filters: { categoryId?: string; storeId?: string; q?: string },
+    filters: {
+      categoryId?: string;
+      storeId?: string;
+      independentSellerId?: string;
+      q?: string;
+    },
   ): Promise<PaginatedResult<SellerProductEntity>> {
     const qb = this.sellerProducts
       .createQueryBuilder('sp')
       .leftJoinAndSelect('sp.masterProduct', 'mp')
       .leftJoinAndSelect('sp.store', 'store')
-      .leftJoinAndSelect('sp.independentSeller', 'is')
+      .leftJoinAndSelect('sp.independentSeller', 'indSeller')
       .leftJoinAndSelect('sp.inventory', 'inv')
       .where('sp.is_active = true')
       .andWhere('sp.deleted_at IS NULL');
@@ -36,6 +41,11 @@ export class ProductsRepository {
     if (filters.storeId) {
       qb.andWhere('sp.store_id = :storeId', { storeId: filters.storeId });
     }
+    if (filters.independentSellerId) {
+      qb.andWhere('sp.independent_seller_id = :independentSellerId', {
+        independentSellerId: filters.independentSellerId,
+      });
+    }
     if (filters.q) {
       qb.andWhere('(sp.title ILIKE :q OR mp.name ILIKE :q)', {
         q: `%${filters.q}%`,
@@ -43,7 +53,7 @@ export class ProductsRepository {
     }
 
     const [data, total] = await qb
-      .orderBy('sp.created_at', 'DESC')
+      .orderBy('sp.createdAt', 'DESC')
       .skip((page - 1) * limit)
       .take(limit)
       .getManyAndCount();
@@ -58,10 +68,26 @@ export class ProductsRepository {
     });
   }
 
+  findSellerProductByIdForAccess(id: string) {
+    return this.sellerProducts.findOne({
+      where: { id },
+      relations: ['masterProduct', 'store', 'independentSeller', 'inventory'],
+    });
+  }
+
+  findByIndependentSellerId(independentSellerId: string) {
+    return this.sellerProducts.find({
+      where: { independentSellerId },
+      relations: ['masterProduct', 'inventory'],
+      order: { createdAt: 'DESC' },
+    });
+  }
+
   findByStoreId(storeId: string) {
     return this.sellerProducts.find({
-      where: { storeId, isActive: true },
+      where: { storeId },
       relations: ['masterProduct', 'inventory'],
+      order: { createdAt: 'DESC' },
     });
   }
 
@@ -69,10 +95,31 @@ export class ProductsRepository {
     return this.sellerProducts.save(this.sellerProducts.create(data));
   }
 
+  createMasterProduct(data: Partial<MasterProductEntity>) {
+    return this.masterProducts.save(this.masterProducts.create(data));
+  }
+
+  findMasterProductById(id: string) {
+    return this.masterProducts.findOne({ where: { id } });
+  }
+
+  saveMasterProduct(master: MasterProductEntity) {
+    return this.masterProducts.save(master);
+  }
+
   updateSellerProduct(
     id: string,
-    data: Pick<SellerProductEntity, 'title' | 'mrp' | 'sellingPrice' | 'isActive'>,
+    data: Partial<
+      Pick<SellerProductEntity, 'title' | 'mrp' | 'sellingPrice' | 'isActive'>
+    >,
   ) {
     return this.sellerProducts.update(id, data);
+  }
+
+  async softDeleteSellerProduct(id: string) {
+    const product = await this.sellerProducts.findOne({ where: { id } });
+    if (!product) return null;
+    await this.sellerProducts.softRemove(product);
+    return product;
   }
 }

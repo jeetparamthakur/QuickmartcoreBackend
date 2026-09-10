@@ -1,6 +1,14 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { PERMISSIONS_KEY, AuthenticatedUser } from '../decorators/auth.decorators';
+import {
+  PERMISSIONS_KEY,
+  AuthenticatedUser,
+} from '../decorators/auth.decorators';
 import { PermissionEvaluationService } from '../../modules/access-control/permission-evaluation.service';
 
 @Injectable()
@@ -17,7 +25,9 @@ export class PermissionsGuard implements CanActivate {
     );
     if (!required?.length) return true;
 
-    const user = context.switchToHttp().getRequest().user as AuthenticatedUser;
+    const { user } = context
+      .switchToHttp()
+      .getRequest<{ user: AuthenticatedUser }>();
     const allowed = this.permissionEvaluation.evaluate(
       user.userType,
       user.permissions,

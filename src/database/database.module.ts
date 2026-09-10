@@ -50,6 +50,7 @@ import { PayoutEntity } from '../modules/payouts/entities/payout.entity';
 import { WalletEntity } from '../modules/wallet/entities/wallet.entity';
 import { WalletTransactionEntity } from '../modules/wallet/entities/wallet-transaction.entity';
 import { CouponEntity } from '../modules/coupons/entities/coupon.entity';
+import { CouponRedemptionEntity } from '../modules/coupons/entities/coupon-redemption.entity';
 import { OfferEntity } from '../modules/offers/entities/offer.entity';
 import { BannerEntity } from '../modules/banners/entities/banner.entity';
 import { AdvertisementEntity } from '../modules/advertisements/entities/advertisement.entity';
@@ -57,6 +58,7 @@ import { NotificationEntity } from '../modules/notifications/entities/notificati
 import { FeatureFlagEntity } from '../modules/feature-flags/entities/feature-flag.entity';
 import { KycSubmissionEntity } from '../modules/kyc/entities/kyc-submission.entity';
 import { KycDocumentEntity } from '../modules/kyc/entities/kyc-document.entity';
+import { StoreStaffEntity } from '../modules/staff/entities/store-staff.entity';
 
 export const ALL_ENTITIES = [
   UserEntity,
@@ -102,6 +104,7 @@ export const ALL_ENTITIES = [
   WalletEntity,
   WalletTransactionEntity,
   CouponEntity,
+  CouponRedemptionEntity,
   OfferEntity,
   BannerEntity,
   AdvertisementEntity,
@@ -109,6 +112,7 @@ export const ALL_ENTITIES = [
   FeatureFlagEntity,
   KycSubmissionEntity,
   KycDocumentEntity,
+  StoreStaffEntity,
 ];
 
 @Module({

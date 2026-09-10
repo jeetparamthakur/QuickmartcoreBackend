@@ -1,4 +1,11 @@
-import { Column, Entity, Index, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
+import {
+  Column,
+  Entity,
+  Index,
+  JoinColumn,
+  ManyToOne,
+  OneToMany,
+} from 'typeorm';
 import { BaseEntity } from '../../../common/entities/base.entity';
 import { SellerType, SubOrderStatus } from '../../../common/enums';
 import { ParentOrderEntity } from './parent-order.entity';
@@ -26,19 +33,46 @@ export class SubOrderEntity extends BaseEntity {
   @Column({ name: 'order_number', type: 'varchar', length: 50 })
   orderNumber!: string;
 
-  @Column({ type: 'enum', enum: SubOrderStatus, default: SubOrderStatus.PLACED })
+  @Column({
+    type: 'enum',
+    enum: SubOrderStatus,
+    default: SubOrderStatus.PLACED,
+  })
   status!: SubOrderStatus;
 
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
   subtotal!: string;
 
-  @Column({ name: 'delivery_fee', type: 'decimal', precision: 12, scale: 2, default: 0 })
+  @Column({
+    name: 'discount_total',
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+    default: 0,
+  })
+  discountTotal!: string;
+
+  @Column({
+    name: 'delivery_fee',
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+    default: 0,
+  })
   deliveryFee!: string;
 
-  @Column({ name: 'commission_amount', type: 'decimal', precision: 12, scale: 2, default: 0 })
+  @Column({
+    name: 'commission_amount',
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+    default: 0,
+  })
   commissionAmount!: string;
 
-  @ManyToOne(() => ParentOrderEntity, (po) => po.subOrders, { onDelete: 'CASCADE' })
+  @ManyToOne(() => ParentOrderEntity, (po) => po.subOrders, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'parent_order_id' })
   parentOrder!: ParentOrderEntity;
 

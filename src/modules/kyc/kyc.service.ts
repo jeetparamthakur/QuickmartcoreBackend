@@ -16,6 +16,8 @@ import {
 import { FileUploadService } from '../file-upload/file-upload.service';
 import { SellerProfileEntity } from '../sellers/entities/seller-profile.entity';
 import { StoreOwnerProfileEntity } from '../stores/entities/store-owner-profile.entity';
+import { DeliveryPartnerProfileEntity } from '../delivery-partners/entities/delivery-partner-profile.entity';
+import { UserEntity } from '../users/entities/user.entity';
 import { KycSubmissionEntity } from './entities/kyc-submission.entity';
 import { KycDocumentEntity } from './entities/kyc-document.entity';
 import {
@@ -23,6 +25,7 @@ import {
   ReviewKycDto,
   UpdateOnboardingDto,
 } from './dto/kyc.dto';
+import { PartnerProvisioningService } from './partner-provisioning.service';
 
 const REQUIRED_DOC_TYPES = [
   KycDocumentType.PAN,
@@ -42,6 +45,7 @@ type PartnerProfileRecord = {
   sellerSetup?: object | null;
   bankDetails?: object | null;
   userType: UserType;
+  createdAt: string;
 };
 
 @Injectable()
@@ -55,7 +59,12 @@ export class KycService {
     private readonly sellerProfiles: Repository<SellerProfileEntity>,
     @InjectRepository(StoreOwnerProfileEntity)
     private readonly storeOwnerProfiles: Repository<StoreOwnerProfileEntity>,
+    @InjectRepository(DeliveryPartnerProfileEntity)
+    private readonly deliveryPartnerProfiles: Repository<DeliveryPartnerProfileEntity>,
+    @InjectRepository(UserEntity)
+    private readonly users: Repository<UserEntity>,
     private readonly fileUploadService: FileUploadService,
+    private readonly partnerProvisioning: PartnerProvisioningService,
   ) {}
 
   async getOrCreateSubmission(userId: string): Promise<KycSubmissionEntity> {
@@ -64,7 +73,10 @@ export class KycService {
       relations: ['documents'],
     });
     if (!submission) {
-      submission = this.submissions.create({ userId, status: KycStatus.PENDING });
+      submission = this.submissions.create({
+        userId,
+        status: KycStatus.PENDING,
+      });
       submission = await this.submissions.save(submission);
       submission.documents = [];
     }
@@ -80,13 +92,128 @@ export class KycService {
     return {
       status: submission.status,
       rejectionReason: submission.rejectionReason ?? undefined,
-      documents: docs.map((d) => ({
-        id: d.id,
-        type: d.type,
-        uri: d.fileUrl,
-        uploadedAt: d.uploadedAt.toISOString(),
-      })),
+      documents: docs.map((d) => this.mapDocument(d)),
     };
+  }
+
+  async listForAdmin(status?: KycStatus) {
+    const requests = await this.listRequestsForAdmin({ status });
+    return requests.filter((r) => r.requestType === 'KYC_ONBOARDING');
+  }
+
+  async listRequestsForAdmin(filters?: {
+    status?: KycStatus | ApprovalStatus;
+    partnerType?: string;
+  }) {
+    const kycRequests = await this.buildKycRequestSummaries();
+    const deliveryRequests = await this.buildDeliveryPartnerRequestSummaries();
+    let combined = [...kycRequests, ...deliveryRequests];
+
+    if (filters?.status) {
+      combined = combined.filter((r) => r.status === filters.status);
+    }
+    if (filters?.partnerType) {
+      combined = combined.filter((r) => r.partnerType === filters.partnerType);
+    }
+
+    return combined.sort(
+      (a, b) =>
+        new Date(b.submittedAt ?? b.createdAt).getTime() -
+        new Date(a.submittedAt ?? a.createdAt).getTime(),
+    );
+  }
+
+  async getRequestDetailForAdmin(userId: string) {
+    const user = await this.users.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    if (user.userType === UserType.DELIVERY_PARTNER) {
+      const profile = await this.deliveryPartnerProfiles.findOne({
+        where: { userId },
+      });
+      if (!profile)
+        throw new NotFoundException('Delivery partner profile not found');
+      const kyc = await this.getStatus(userId);
+      return {
+        userId,
+        requestType: 'DELIVERY_PARTNER' as const,
+        partnerType: 'DELIVERY_PARTNER',
+        name: profile.fullName,
+        phone: user.phone ?? undefined,
+        email: user.email,
+        status: profile.approvalStatus,
+        approvalStatus: profile.approvalStatus,
+        rejectionReason: profile.rejectionReason ?? undefined,
+        reviewedAt: profile.reviewedAt?.toISOString(),
+        createdAt: profile.createdAt.toISOString(),
+        submittedAt: profile.createdAt.toISOString(),
+        preference: profile.preference,
+        documents: kyc.documents,
+        businessDetails: undefined,
+        storeDetails: undefined,
+        sellerSetup: undefined,
+        bankDetails: undefined,
+      };
+    }
+
+    const profile = await this.resolvePartnerProfileByUserId(userId);
+    const kyc = await this.getStatus(userId);
+    return {
+      userId,
+      requestType: 'KYC_ONBOARDING' as const,
+      partnerType: profile.partnerType,
+      name: profile.name,
+      phone: user.phone ?? undefined,
+      email: user.email,
+      status: kyc.status,
+      approvalStatus: profile.approvalStatus,
+      onboardingStep: profile.onboardingStep,
+      rejectionReason: kyc.rejectionReason,
+      submittedAt: (
+        await this.submissions.findOne({ where: { userId } })
+      )?.submittedAt?.toISOString(),
+      reviewedAt: (
+        await this.submissions.findOne({ where: { userId } })
+      )?.reviewedAt?.toISOString(),
+      createdAt: profile.createdAt,
+      documents: kyc.documents,
+      businessDetails: profile.businessDetails ?? undefined,
+      storeDetails: profile.storeDetails ?? undefined,
+      sellerSetup: profile.sellerSetup ?? undefined,
+      bankDetails: profile.bankDetails ?? undefined,
+    };
+  }
+
+  async reviewRequest(userId: string, dto: ReviewKycDto) {
+    const user = await this.users.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    if (user.userType === UserType.DELIVERY_PARTNER) {
+      return this.reviewDeliveryPartner(userId, dto);
+    }
+
+    return this.reviewKyc(userId, dto);
+  }
+
+  async reviewDeliveryPartner(userId: string, dto: ReviewKycDto) {
+    const profile = await this.deliveryPartnerProfiles.findOne({
+      where: { userId },
+    });
+    if (!profile)
+      throw new NotFoundException('Delivery partner profile not found');
+
+    if (dto.status === 'approved') {
+      profile.approvalStatus = ApprovalStatus.APPROVED;
+      profile.rejectionReason = null;
+      profile.reviewedAt = new Date();
+    } else {
+      profile.approvalStatus = ApprovalStatus.REJECTED;
+      profile.rejectionReason = dto.rejectionReason ?? 'Application rejected';
+      profile.reviewedAt = new Date();
+    }
+
+    await this.deliveryPartnerProfiles.save(profile);
+    return this.getRequestDetailForAdmin(userId);
   }
 
   async uploadDocument(
@@ -99,7 +226,10 @@ export class KycService {
       throw new BadRequestException('Invalid document type');
     }
 
-    const uploaded = await this.fileUploadService.saveLocal(file);
+    const uploaded = await this.fileUploadService.uploadToCloudinary(file, {
+      folder: `${this.fileUploadService.getRootFolder()}/kyc/${userId}`,
+      publicId: docType,
+    });
     const submission = await this.getOrCreateSubmission(userId);
 
     const existing = await this.documents.findOne({
@@ -109,16 +239,12 @@ export class KycService {
     const now = new Date();
     if (existing) {
       existing.fileUrl = uploaded.url;
+      existing.cloudinaryPublicId = uploaded.publicId ?? null;
       existing.uploadedAt = now;
       await this.documents.save(existing);
       return {
         success: true,
-        document: {
-          id: existing.id,
-          type: existing.type,
-          uri: existing.fileUrl,
-          uploadedAt: existing.uploadedAt.toISOString(),
-        },
+        document: this.mapDocument(existing),
       };
     }
 
@@ -126,23 +252,21 @@ export class KycService {
       submissionId: submission.id,
       type: docType,
       fileUrl: uploaded.url,
+      cloudinaryPublicId: uploaded.publicId ?? null,
       uploadedAt: now,
     });
     const saved = await this.documents.save(doc);
     return {
       success: true,
-      document: {
-        id: saved.id,
-        type: saved.type,
-        uri: saved.fileUrl,
-        uploadedAt: saved.uploadedAt.toISOString(),
-      },
+      document: this.mapDocument(saved),
     };
   }
 
   async submitKyc(userId: string) {
     const submission = await this.getOrCreateSubmission(userId);
-    const docs = await this.documents.find({ where: { submissionId: submission.id } });
+    const docs = await this.documents.find({
+      where: { submissionId: submission.id },
+    });
     const uploadedTypes = new Set(docs.map((d) => d.type));
 
     for (const required of REQUIRED_DOC_TYPES) {
@@ -163,7 +287,11 @@ export class KycService {
     return { success: true, status: submission.status };
   }
 
-  async updateOnboarding(userId: string, userType: UserType, dto: UpdateOnboardingDto) {
+  async updateOnboarding(
+    userId: string,
+    userType: UserType,
+    dto: UpdateOnboardingDto,
+  ) {
     const profile = await this.getPartnerProfileRecord(userId, userType);
     const updates: Partial<PartnerProfileRecord> = {};
 
@@ -175,36 +303,56 @@ export class KycService {
         ...dto.businessDetails,
       };
       updates.businessDetails = merged;
-      if (dto.businessDetails.fullName && typeof dto.businessDetails.fullName === 'string') {
+      if (
+        dto.businessDetails.fullName &&
+        typeof dto.businessDetails.fullName === 'string'
+      ) {
         updates.name = dto.businessDetails.fullName;
       }
     }
     if (dto.storeDetails) {
       updates.storeDetails = {
-        ...((profile.storeDetails as Record<string, unknown>) ?? {}),
+        ...(profile.storeDetails ?? {}),
         ...dto.storeDetails,
       };
     }
     if (dto.sellerSetup) {
       updates.sellerSetup = {
-        ...((profile.sellerSetup as Record<string, unknown>) ?? {}),
+        ...(profile.sellerSetup ?? {}),
         ...dto.sellerSetup,
       };
     }
     if (dto.bankDetails) {
       updates.bankDetails = {
-        ...((profile.bankDetails as Record<string, unknown>) ?? {}),
+        ...(profile.bankDetails ?? {}),
         ...dto.bankDetails,
       };
     }
 
     await this.savePartnerProfile(userId, userType, updates);
+
+    if (dto.sellerSetup && userType === UserType.SELLER) {
+      const seller = await this.sellerProfiles.findOne({ where: { userId } });
+      if (seller?.partnerType === PartnerType.INDEPENDENT_SELLER) {
+        await this.partnerProvisioning.syncIndependentSellerFromSetup(
+          seller.id,
+          updates.sellerSetup as Record<string, unknown>,
+        );
+      }
+    }
+
     return this.buildPartnerResponse(userId, userType);
   }
 
-  async completeOnboarding(userId: string, userType: UserType, dto: CompleteOnboardingDto) {
+  async completeOnboarding(
+    userId: string,
+    userType: UserType,
+    dto: CompleteOnboardingDto,
+  ) {
     if (dto.bankDetails) {
-      await this.updateOnboarding(userId, userType, { bankDetails: dto.bankDetails });
+      await this.updateOnboarding(userId, userType, {
+        bankDetails: dto.bankDetails,
+      });
     }
 
     await this.updatePartnerProfile(userId, {
@@ -218,6 +366,8 @@ export class KycService {
       submission.submittedAt = new Date();
       await this.submissions.save(submission);
     }
+
+    await this.partnerProvisioning.provisionForUser(userId, false);
 
     return this.buildPartnerResponse(userId, userType);
   }
@@ -236,6 +386,7 @@ export class KycService {
         approvalStatus: ApprovalStatus.APPROVED,
         onboardingStep: OnboardingStep.COMPLETED,
       });
+      await this.partnerProvisioning.activateForUser(userId);
     } else {
       submission.status = KycStatus.REJECTED;
       submission.reviewedAt = new Date();
@@ -253,26 +404,166 @@ export class KycService {
 
   async buildPartnerResponse(userId: string, userType: UserType) {
     const profile = await this.getPartnerProfileRecord(userId, userType);
+
+    if (
+      profile.onboardingStep === OnboardingStep.PENDING_APPROVAL ||
+      profile.onboardingStep === OnboardingStep.COMPLETED
+    ) {
+      const activate = profile.approvalStatus === ApprovalStatus.APPROVED;
+      await this.partnerProvisioning.provisionForUser(userId, activate);
+    }
+
+    const refreshed = await this.getPartnerProfileRecord(userId, userType);
     const kyc = await this.getStatus(userId);
     const isStoreOpen =
-      profile.storeDetails &&
-      typeof (profile.storeDetails as Record<string, unknown>).isOpen === 'boolean'
-        ? (profile.storeDetails as Record<string, unknown>).isOpen as boolean
+      refreshed.storeDetails &&
+      typeof (refreshed.storeDetails as Record<string, unknown>).isOpen ===
+        'boolean'
+        ? ((refreshed.storeDetails as Record<string, unknown>)
+            .isOpen as boolean)
         : true;
 
     return {
-      id: profile.id,
-      name: profile.name,
-      partnerType: profile.partnerType,
-      onboardingStep: profile.onboardingStep,
-      approvalStatus: profile.approvalStatus,
+      id: refreshed.id,
+      name: refreshed.name,
+      partnerType: refreshed.partnerType,
+      onboardingStep: refreshed.onboardingStep,
+      approvalStatus: refreshed.approvalStatus,
       isStoreOpen,
-      businessDetails: profile.businessDetails ?? undefined,
-      storeDetails: profile.storeDetails ?? undefined,
-      sellerSetup: profile.sellerSetup ?? undefined,
-      bankDetails: profile.bankDetails ?? undefined,
+      businessDetails: refreshed.businessDetails ?? undefined,
+      storeDetails: refreshed.storeDetails ?? undefined,
+      sellerSetup: refreshed.sellerSetup ?? undefined,
+      bankDetails: refreshed.bankDetails ?? undefined,
       kyc,
     };
+  }
+
+  private mapDocument(d: KycDocumentEntity) {
+    return {
+      id: d.id,
+      type: d.type,
+      uri: d.fileUrl,
+      uploadedAt: d.uploadedAt.toISOString(),
+    };
+  }
+
+  private async buildKycRequestSummaries() {
+    const submissions = await this.submissions.find({
+      relations: ['documents'],
+      order: { updatedAt: 'DESC' },
+    });
+
+    const summaries = [];
+    for (const submission of submissions) {
+      try {
+        const profile = await this.resolvePartnerProfileByUserId(
+          submission.userId,
+        );
+        const user = await this.users.findOne({
+          where: { id: submission.userId },
+        });
+        const docs = submission.documents?.length
+          ? submission.documents
+          : await this.documents.find({
+              where: { submissionId: submission.id },
+              order: { uploadedAt: 'DESC' },
+            });
+
+        summaries.push({
+          userId: submission.userId,
+          requestType: 'KYC_ONBOARDING',
+          partnerType: profile.partnerType,
+          name: profile.name,
+          phone: user?.phone ?? undefined,
+          email: user?.email,
+          status: submission.status,
+          approvalStatus: profile.approvalStatus,
+          onboardingStep: profile.onboardingStep,
+          rejectionReason: submission.rejectionReason ?? undefined,
+          submittedAt: submission.submittedAt?.toISOString(),
+          reviewedAt: submission.reviewedAt?.toISOString(),
+          createdAt: profile.createdAt,
+          documentCount: docs.length,
+        });
+      } catch {
+        // Skip submissions without a partner profile
+      }
+    }
+    return summaries;
+  }
+
+  private async buildDeliveryPartnerRequestSummaries() {
+    const profiles = await this.deliveryPartnerProfiles.find({
+      order: { createdAt: 'DESC' },
+    });
+
+    const summaries = [];
+    for (const profile of profiles) {
+      const user = await this.users.findOne({ where: { id: profile.userId } });
+      const docs = await this.documents.find({
+        where: {
+          submissionId: (await this.getOrCreateSubmission(profile.userId)).id,
+        },
+      });
+
+      summaries.push({
+        userId: profile.userId,
+        requestType: 'DELIVERY_PARTNER',
+        partnerType: 'DELIVERY_PARTNER',
+        name: profile.fullName,
+        phone: user?.phone ?? undefined,
+        email: user?.email,
+        status: profile.approvalStatus,
+        approvalStatus: profile.approvalStatus,
+        rejectionReason: profile.rejectionReason ?? undefined,
+        submittedAt: profile.createdAt.toISOString(),
+        reviewedAt: profile.reviewedAt?.toISOString(),
+        createdAt: profile.createdAt.toISOString(),
+        documentCount: docs.length,
+      });
+    }
+    return summaries;
+  }
+
+  private async resolvePartnerProfileByUserId(
+    userId: string,
+  ): Promise<PartnerProfileRecord> {
+    const seller = await this.sellerProfiles.findOne({ where: { userId } });
+    if (seller) {
+      return {
+        id: seller.id,
+        userId: seller.userId,
+        name: seller.businessName,
+        partnerType: seller.partnerType ?? PartnerType.INDEPENDENT_SELLER,
+        onboardingStep: seller.onboardingStep,
+        approvalStatus: seller.approvalStatus,
+        businessDetails: seller.businessDetails,
+        storeDetails: seller.storeDetails,
+        sellerSetup: seller.sellerSetup,
+        bankDetails: seller.bankDetails,
+        userType: UserType.SELLER,
+        createdAt: seller.createdAt.toISOString(),
+      };
+    }
+
+    const owner = await this.storeOwnerProfiles.findOne({ where: { userId } });
+    if (owner) {
+      return {
+        id: owner.id,
+        userId: owner.userId,
+        name: owner.fullName,
+        partnerType: owner.partnerType ?? PartnerType.STORE,
+        onboardingStep: owner.onboardingStep,
+        approvalStatus: owner.approvalStatus,
+        businessDetails: owner.businessDetails,
+        storeDetails: owner.storeDetails,
+        bankDetails: owner.bankDetails,
+        userType: UserType.STORE_OWNER,
+        createdAt: owner.createdAt.toISOString(),
+      };
+    }
+
+    throw new NotFoundException('Partner profile not found');
   }
 
   private async getPartnerProfileRecord(
@@ -280,8 +571,11 @@ export class KycService {
     userType: UserType,
   ): Promise<PartnerProfileRecord> {
     if (userType === UserType.STORE_OWNER) {
-      const profile = await this.storeOwnerProfiles.findOne({ where: { userId } });
-      if (!profile) throw new NotFoundException('Store owner profile not found');
+      const profile = await this.storeOwnerProfiles.findOne({
+        where: { userId },
+      });
+      if (!profile)
+        throw new NotFoundException('Store owner profile not found');
       return {
         id: profile.id,
         userId: profile.userId,
@@ -293,6 +587,7 @@ export class KycService {
         storeDetails: profile.storeDetails,
         bankDetails: profile.bankDetails,
         userType,
+        createdAt: profile.createdAt.toISOString(),
       };
     }
 
@@ -306,9 +601,11 @@ export class KycService {
       onboardingStep: profile.onboardingStep,
       approvalStatus: profile.approvalStatus,
       businessDetails: profile.businessDetails,
+      storeDetails: profile.storeDetails,
       sellerSetup: profile.sellerSetup,
       bankDetails: profile.bankDetails,
       userType,
+      createdAt: profile.createdAt.toISOString(),
     };
   }
 
@@ -318,15 +615,23 @@ export class KycService {
     updates: Partial<PartnerProfileRecord>,
   ) {
     if (userType === UserType.STORE_OWNER) {
-      const profile = await this.storeOwnerProfiles.findOne({ where: { userId } });
-      if (!profile) throw new NotFoundException('Store owner profile not found');
+      const profile = await this.storeOwnerProfiles.findOne({
+        where: { userId },
+      });
+      if (!profile)
+        throw new NotFoundException('Store owner profile not found');
       if (updates.name) profile.fullName = updates.name;
-      if (updates.onboardingStep) profile.onboardingStep = updates.onboardingStep;
-      if (updates.approvalStatus) profile.approvalStatus = updates.approvalStatus;
+      if (updates.onboardingStep)
+        profile.onboardingStep = updates.onboardingStep;
+      if (updates.approvalStatus)
+        profile.approvalStatus = updates.approvalStatus;
       if (updates.partnerType) profile.partnerType = updates.partnerType;
-      if (updates.businessDetails !== undefined) profile.businessDetails = updates.businessDetails;
-      if (updates.storeDetails !== undefined) profile.storeDetails = updates.storeDetails;
-      if (updates.bankDetails !== undefined) profile.bankDetails = updates.bankDetails;
+      if (updates.businessDetails !== undefined)
+        profile.businessDetails = updates.businessDetails;
+      if (updates.storeDetails !== undefined)
+        profile.storeDetails = updates.storeDetails;
+      if (updates.bankDetails !== undefined)
+        profile.bankDetails = updates.bankDetails;
       await this.storeOwnerProfiles.save(profile);
       return;
     }
@@ -337,9 +642,14 @@ export class KycService {
     if (updates.onboardingStep) profile.onboardingStep = updates.onboardingStep;
     if (updates.approvalStatus) profile.approvalStatus = updates.approvalStatus;
     if (updates.partnerType) profile.partnerType = updates.partnerType;
-    if (updates.businessDetails !== undefined) profile.businessDetails = updates.businessDetails;
-    if (updates.sellerSetup !== undefined) profile.sellerSetup = updates.sellerSetup;
-    if (updates.bankDetails !== undefined) profile.bankDetails = updates.bankDetails;
+    if (updates.businessDetails !== undefined)
+      profile.businessDetails = updates.businessDetails;
+    if (updates.storeDetails !== undefined)
+      profile.storeDetails = updates.storeDetails;
+    if (updates.sellerSetup !== undefined)
+      profile.sellerSetup = updates.sellerSetup;
+    if (updates.bankDetails !== undefined)
+      profile.bankDetails = updates.bankDetails;
     await this.sellerProfiles.save(profile);
   }
 

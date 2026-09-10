@@ -1,4 +1,11 @@
-import { Column, Entity, Index, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
+import {
+  Column,
+  Entity,
+  Index,
+  JoinColumn,
+  ManyToOne,
+  OneToMany,
+} from 'typeorm';
 import { SoftDeleteEntity } from '../../../common/entities/base.entity';
 import { IndependentSellerStatus } from '../../../common/enums';
 import { SellerProfileEntity } from '../../sellers/entities/seller-profile.entity';
@@ -13,10 +20,22 @@ export class IndependentSellerEntity extends SoftDeleteEntity {
   @Column({ name: 'business_name', type: 'varchar', length: 255 })
   businessName!: string;
 
-  @Column({ name: 'pickup_lat', type: 'decimal', precision: 10, scale: 7, nullable: true })
+  @Column({
+    name: 'pickup_lat',
+    type: 'decimal',
+    precision: 10,
+    scale: 7,
+    nullable: true,
+  })
   pickupLat?: string | null;
 
-  @Column({ name: 'pickup_lng', type: 'decimal', precision: 10, scale: 7, nullable: true })
+  @Column({
+    name: 'pickup_lng',
+    type: 'decimal',
+    precision: 10,
+    scale: 7,
+    nullable: true,
+  })
   pickupLng?: string | null;
 
   @Column({

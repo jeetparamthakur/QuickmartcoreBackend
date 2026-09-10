@@ -90,6 +90,6 @@ export class AdminCrudController {
   @Get('finance/summary')
   @RequirePermissions('admin:all')
   financeSummary() {
-    return { platformRevenue: 0, sellerPayables: 0, deliveryPayables: 0 };
+    return this.adminCrud.getFinanceSummary();
   }
 }

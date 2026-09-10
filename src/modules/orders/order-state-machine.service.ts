@@ -1,8 +1,9 @@
+import { BadRequestException, Injectable } from '@nestjs/common';
 import {
-  BadRequestException,
-  Injectable,
-} from '@nestjs/common';
-import { SubOrderStatus, ActorType, ParentOrderStatus } from '../../common/enums';
+  SubOrderStatus,
+  ActorType,
+  ParentOrderStatus,
+} from '../../common/enums';
 
 const VALID_TRANSITIONS: Record<SubOrderStatus, SubOrderStatus[]> = {
   [SubOrderStatus.PLACED]: [

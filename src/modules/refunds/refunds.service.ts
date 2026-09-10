@@ -5,7 +5,11 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { LedgerEntryType, PaymentStatus, RefundStatus } from '../../common/enums';
+import {
+  LedgerEntryType,
+  PaymentStatus,
+  RefundStatus,
+} from '../../common/enums';
 import { PaymentEntity } from '../payments/entities/payment.entity';
 import { FinanceService } from '../finance/finance.service';
 import { RefundEntity } from './entities/refund.entity';
@@ -37,7 +41,9 @@ export class RefundsService {
   ) {}
 
   async createRefund(dto: CreateRefundDto) {
-    const payment = await this.payments.findOne({ where: { id: dto.paymentId } });
+    const payment = await this.payments.findOne({
+      where: { id: dto.paymentId },
+    });
     if (!payment) {
       throw new NotFoundException({
         message: 'Payment not found',

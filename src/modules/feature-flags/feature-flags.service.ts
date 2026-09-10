@@ -24,6 +24,7 @@ export class FeatureFlagsRepository {
 
   async update(id: string, data: Partial<FeatureFlagEntity>) {
     const { metadata: _m, ...updateData } = data;
+    void _m;
     await this.repo.update(id, updateData);
     return this.repo.findOne({ where: { id } });
   }

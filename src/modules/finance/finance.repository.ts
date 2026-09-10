@@ -16,6 +16,9 @@ export class FinanceRepository implements FinanceRepositoryPort {
   }
 
   findByReference(referenceId: string) {
-    return this.repo.find({ where: { referenceId }, order: { createdAt: 'ASC' } });
+    return this.repo.find({
+      where: { referenceId },
+      order: { createdAt: 'ASC' },
+    });
   }
 }

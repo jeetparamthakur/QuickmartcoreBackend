@@ -1,6 +1,9 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { AuditLogEntity, IdempotencyKeyEntity } from './entities/audit-log.entity';
+import {
+  AuditLogEntity,
+  IdempotencyKeyEntity,
+} from './entities/audit-log.entity';
 import { AuditLogsService, AuditLogsRepository } from './audit-logs.service';
 
 @Module({

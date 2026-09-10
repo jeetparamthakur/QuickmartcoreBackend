@@ -16,7 +16,11 @@ export class AdvertisementEntity extends BaseEntity {
   @Column({ name: 'target_url', type: 'varchar', length: 500, nullable: true })
   targetUrl?: string | null;
 
-  @Column({ type: 'enum', enum: AdvertisementStatus, default: AdvertisementStatus.DRAFT })
+  @Column({
+    type: 'enum',
+    enum: AdvertisementStatus,
+    default: AdvertisementStatus.DRAFT,
+  })
   status!: AdvertisementStatus;
 
   @Column({ name: 'starts_at', type: 'timestamptz', nullable: true })

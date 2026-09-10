@@ -10,6 +10,13 @@ import {
   IndependentSellerStatus,
   InventoryStatus,
   ChargeType,
+  CommissionRuleType,
+  CouponCreatedByType,
+  CouponFundingSource,
+  CouponScopeType,
+  CouponType,
+  OfferStatus,
+  BannerPlacement,
 } from '../src/common/enums';
 import { CategoryEntity } from '../src/modules/categories/entities/category.entity';
 import { MasterProductEntity } from '../src/modules/products/entities/master-product.entity';
@@ -26,7 +33,11 @@ import {
 } from '../src/modules/charges/entities/charge-rule.entity';
 import { AdminProfileEntity } from '../src/modules/admin/entities/admin-profile.entity';
 import { CommissionRuleEntity } from '../src/modules/commission/entities/commission-rule.entity';
-import { CommissionRuleType } from '../src/common/enums';
+import { CouponEntity } from '../src/modules/coupons/entities/coupon.entity';
+import { OfferEntity } from '../src/modules/offers/entities/offer.entity';
+import { BannerEntity } from '../src/modules/banners/entities/banner.entity';
+import { RoleEntity } from '../src/modules/access-control/entities/role.entity';
+import { UserRoleEntity } from '../src/modules/access-control/entities/user-role.entity';
 
 async function seed() {
   const app = await NestFactory.createApplicationContext(AppModule);
@@ -145,6 +156,16 @@ async function seed() {
     isActive: true,
   });
 
+  await ds.getRepository(ChargeRuleEntity).save({
+    code: 'HANDLING_FEE',
+    name: 'Handling Fee',
+    type: ChargeType.FIXED,
+    value: '15.00',
+    conditions: {},
+    priority: 3,
+    isActive: true,
+  });
+
   await ds.getRepository(DeliveryFeeSlabEntity).save({
     minKm: '0',
     maxKm: '2',
@@ -187,6 +208,19 @@ async function seed() {
     loginEnabled: true,
   });
 
+  const assignPanelRole = async (userId: string, roleName: UserType) => {
+    const role = await ds.getRepository(RoleEntity).findOne({ where: { name: roleName } });
+    if (!role) return;
+    const existing = await ds.getRepository(UserRoleEntity).findOne({
+      where: { userId, roleId: role.id },
+    });
+    if (existing) return;
+    await ds.getRepository(UserRoleEntity).save({ userId, roleId: role.id });
+  };
+
+  await assignPanelRole(superAdminUser.id, UserType.SUPER_ADMIN);
+  await assignPanelRole(adminUser.id, UserType.ADMIN);
+
   await ds.getRepository(CommissionRuleEntity).save([
     {
       code: 'STORE_COMMISSION',
@@ -194,6 +228,7 @@ async function seed() {
       type: CommissionRuleType.PERCENTAGE,
       value: '10.0000',
       sellerType: SellerType.STORE,
+      effectiveFrom: '2024-01-01',
       conditions: {},
       priority: 1,
       isActive: true,
@@ -204,6 +239,7 @@ async function seed() {
       type: CommissionRuleType.PERCENTAGE,
       value: '15.0000',
       sellerType: SellerType.INDEPENDENT,
+      effectiveFrom: '2024-01-01',
       conditions: {},
       priority: 2,
       isActive: true,
@@ -213,8 +249,89 @@ async function seed() {
       name: 'Minimum Order Commission',
       type: CommissionRuleType.FIXED,
       value: '5.0000',
+      effectiveFrom: '2024-01-01',
       conditions: { minOrderAmount: 100 },
       priority: 3,
+      isActive: true,
+    },
+  ]);
+
+  await ds.getRepository(CouponEntity).save([
+    {
+      code: 'WELCOME10',
+      name: 'Welcome 10% Off',
+      type: CouponType.PERCENTAGE,
+      value: '10.0000',
+      minOrderAmount: '199.00',
+      maxDiscount: '100.00',
+      usageLimit: 1000,
+      perCustomerLimit: 1,
+      scopeType: CouponScopeType.GLOBAL,
+      fundingSource: CouponFundingSource.PLATFORM,
+      createdByType: CouponCreatedByType.ADMIN,
+      isActive: true,
+    },
+    {
+      code: 'FRESH50',
+      name: 'Fresh Mart ₹50 Off',
+      type: CouponType.FIXED,
+      value: '50.0000',
+      minOrderAmount: '300.00',
+      usageLimit: 500,
+      perCustomerLimit: 2,
+      scopeType: CouponScopeType.STORE,
+      storeId: store.id,
+      fundingSource: CouponFundingSource.SELLER,
+      createdByType: CouponCreatedByType.ADMIN,
+      isActive: true,
+    },
+    {
+      code: 'BAKES20',
+      name: 'Homemade Bakes 20% Off',
+      type: CouponType.PERCENTAGE,
+      value: '20.0000',
+      minOrderAmount: '150.00',
+      maxDiscount: '80.00',
+      usageLimit: 200,
+      perCustomerLimit: 1,
+      scopeType: CouponScopeType.INDEPENDENT_SELLER,
+      independentSellerId: independentSeller.id,
+      fundingSource: CouponFundingSource.SELLER,
+      createdByType: CouponCreatedByType.SELLER,
+      createdByUserId: sellerUser.id,
+      isActive: true,
+    },
+  ]);
+
+  await ds.getRepository(OfferEntity).save({
+    title: 'Welcome Offer',
+    description: 'Get 10% off your first order with code WELCOME10',
+    discountPercent: '10.00',
+    linkedCouponCode: 'WELCOME10',
+    status: OfferStatus.ACTIVE,
+  });
+
+  await ds.getRepository(BannerEntity).save([
+    {
+      title: 'Fresh Groceries Delivered',
+      imageUrl: 'https://picsum.photos/seed/banner-home/800/300',
+      linkUrl: `/category/${category.id}`,
+      placement: BannerPlacement.HOME_TOP,
+      sortOrder: 0,
+      isActive: true,
+    },
+    {
+      title: 'Weekend Deals',
+      imageUrl: 'https://picsum.photos/seed/banner-middle/800/300',
+      placement: BannerPlacement.HOME_MIDDLE,
+      sortOrder: 1,
+      isActive: true,
+    },
+    {
+      title: 'Partner Updates',
+      imageUrl: 'https://picsum.photos/seed/banner-partner/800/300',
+      placement: BannerPlacement.HOME_MIDDLE,
+      sortOrder: 2,
       isActive: true,
     },
   ]);

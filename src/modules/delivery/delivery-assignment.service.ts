@@ -29,11 +29,17 @@ export class DeliveryAssignmentRepository {
 
     if (preference === DeliveryPartnerPreference.STORE_ONLY) {
       qb.andWhere('p.preference IN (:...prefs)', {
-        prefs: [DeliveryPartnerPreference.STORE_ONLY, DeliveryPartnerPreference.BOTH],
+        prefs: [
+          DeliveryPartnerPreference.STORE_ONLY,
+          DeliveryPartnerPreference.BOTH,
+        ],
       });
     } else if (preference === DeliveryPartnerPreference.INDEPENDENT) {
       qb.andWhere('p.preference IN (:...prefs)', {
-        prefs: [DeliveryPartnerPreference.INDEPENDENT, DeliveryPartnerPreference.BOTH],
+        prefs: [
+          DeliveryPartnerPreference.INDEPENDENT,
+          DeliveryPartnerPreference.BOTH,
+        ],
       });
     }
 
@@ -60,6 +66,8 @@ export class DeliveryAssignmentRepository {
 
   update(id: string, data: Partial<DeliveryAssignmentEntity>) {
     const { subOrder: _s, partnerProfile: _p, ...updateData } = data;
+    void _s;
+    void _p;
     return this.repo.update(id, updateData);
   }
 

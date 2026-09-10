@@ -17,8 +17,27 @@ export class CommissionRuleEntity extends BaseEntity {
   @Column({ type: 'decimal', precision: 12, scale: 4 })
   value!: string;
 
-  @Column({ name: 'seller_type', type: 'enum', enum: SellerType, nullable: true })
+  @Column({
+    name: 'seller_type',
+    type: 'enum',
+    enum: SellerType,
+    nullable: true,
+  })
   sellerType?: SellerType | null;
+
+  @Index()
+  @Column({ name: 'target_id', type: 'uuid', nullable: true })
+  targetId?: string | null;
+
+  @Column({
+    name: 'effective_from',
+    type: 'date',
+    default: () => 'CURRENT_DATE',
+  })
+  effectiveFrom!: string;
+
+  @Column({ name: 'effective_to', type: 'date', nullable: true })
+  effectiveTo?: string | null;
 
   @Column({ type: 'jsonb', default: {} })
   conditions!: Record<string, unknown>;

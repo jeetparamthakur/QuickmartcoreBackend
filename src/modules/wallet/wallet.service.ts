@@ -77,7 +77,9 @@ export class WalletService {
     description?: string,
   ) {
     const wallet = await this.getOrCreateWallet(ownerId, ownerType);
-    const newBalance = (parseFloat(wallet.balance) + parseFloat(amount)).toFixed(2);
+    const newBalance = (
+      parseFloat(wallet.balance) + parseFloat(amount)
+    ).toFixed(2);
     wallet.balance = newBalance;
     await this.repo.saveWallet(wallet);
 
@@ -108,7 +110,9 @@ export class WalletService {
       });
     }
 
-    const newBalance = (parseFloat(wallet.balance) - parseFloat(amount)).toFixed(2);
+    const newBalance = (
+      parseFloat(wallet.balance) - parseFloat(amount)
+    ).toFixed(2);
     wallet.balance = newBalance;
     await this.repo.saveWallet(wallet);
 

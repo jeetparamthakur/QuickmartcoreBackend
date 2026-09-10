@@ -74,13 +74,16 @@ export class AdminControlService {
     return permissions;
   }
 
-  private toPermissionsMatrix(entity: AdminPermissionsEntity): AdminPermissionsMatrix {
+  private toPermissionsMatrix(
+    entity: AdminPermissionsEntity,
+  ): AdminPermissionsMatrix {
     return {
       permissionVersion: entity.permissionVersion,
-      modulePermissions: entity.modulePermissions as AdminPermissionsMatrix['modulePermissions'],
+      modulePermissions: entity.modulePermissions,
       featurePermissions: entity.featurePermissions,
-      actionPermissions: entity.actionPermissions as AdminPermissionsMatrix['actionPermissions'],
-      temporaryRestrictions: entity.temporaryRestrictions as AdminPermissionsMatrix['temporaryRestrictions'],
+      actionPermissions: entity.actionPermissions,
+      temporaryRestrictions:
+        entity.temporaryRestrictions as AdminPermissionsMatrix['temporaryRestrictions'],
     };
   }
 
@@ -88,7 +91,13 @@ export class AdminControlService {
     entity: AdminPermissionsEntity,
     matrix: AdminPermissionsMatrix,
     performedBy: string,
-    audit?: { module?: string; feature?: string; oldValue: string; newValue: string; reason?: string },
+    audit?: {
+      module?: string;
+      feature?: string;
+      oldValue: string;
+      newValue: string;
+      reason?: string;
+    },
   ) {
     entity.permissionVersion = matrix.permissionVersion;
     entity.modulePermissions = matrix.modulePermissions;
@@ -220,13 +229,20 @@ export class AdminControlService {
     return matrix;
   }
 
-  async updateFeaturePermissions(module: string, features: Record<string, boolean>) {
+  async updateFeaturePermissions(
+    module: string,
+    features: Record<string, boolean>,
+  ) {
     const admin = await this.getAdminProfile();
     const entity = await this.getPermissionsEntity(admin.id);
     const matrix = this.toPermissionsMatrix(entity);
     matrix.permissionVersion += 1;
-    matrix.featurePermissions[module as keyof typeof matrix.featurePermissions] = {
-      ...(matrix.featurePermissions[module as keyof typeof matrix.featurePermissions] ?? {}),
+    matrix.featurePermissions[
+      module as keyof typeof matrix.featurePermissions
+    ] = {
+      ...(matrix.featurePermissions[
+        module as keyof typeof matrix.featurePermissions
+      ] ?? {}),
       ...features,
     };
     await this.savePermissions(entity, matrix, 'Super Admin', {
@@ -261,7 +277,8 @@ export class AdminControlService {
     matrix.permissionVersion += 1;
     matrix.temporaryRestrictions.push({
       id: uuidv4(),
-      module: dto.module as AdminPermissionsMatrix['temporaryRestrictions'][0]['module'],
+      module:
+        dto.module as AdminPermissionsMatrix['temporaryRestrictions'][0]['module'],
       feature: dto.feature,
       from: dto.from,
       until: dto.until,
@@ -294,7 +311,6 @@ export class AdminControlService {
     const admin = await this.getAdminProfile();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const actionsToday = await this.activities.count({
       where: { adminProfileId: admin.id },
     });
@@ -351,7 +367,10 @@ export class AdminControlService {
         errorCode: 'ADMIN_ACCESS_BLOCKED',
       });
     }
-    if (admin.accountStatus === UserStatus.BLOCKED || admin.accountStatus === UserStatus.SUSPENDED) {
+    if (
+      admin.accountStatus === UserStatus.BLOCKED ||
+      admin.accountStatus === UserStatus.SUSPENDED
+    ) {
       throw new ForbiddenException({
         message: 'Admin account suspended',
         errorCode: 'ADMIN_SUSPENDED',

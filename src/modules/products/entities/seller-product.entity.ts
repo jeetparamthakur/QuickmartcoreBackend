@@ -1,4 +1,11 @@
-import { Column, Entity, Index, JoinColumn, ManyToOne, OneToOne } from 'typeorm';
+import {
+  Column,
+  Entity,
+  Index,
+  JoinColumn,
+  ManyToOne,
+  OneToOne,
+} from 'typeorm';
 import { SoftDeleteEntity } from '../../../common/entities/base.entity';
 import { SellerType } from '../../../common/enums';
 import { MasterProductEntity } from './master-product.entity';

@@ -110,9 +110,35 @@ export class InventoryRepository {
 
   updateInventory(
     id: string,
-    data: Pick<InventoryItemEntity, 'quantityAvailable' | 'quantityReserved' | 'status'>,
+    data: Pick<
+      InventoryItemEntity,
+      'quantityAvailable' | 'quantityReserved' | 'status'
+    >,
   ) {
     return this.inventoryRepo.update(id, data);
+  }
+
+  async upsertQuantity(sellerProductId: string, quantity: number) {
+    let inventory = await this.findBySellerProductId(sellerProductId);
+    if (!inventory) {
+      inventory = this.inventoryRepo.create({
+        sellerProductId,
+        quantityAvailable: quantity,
+        quantityReserved: 0,
+        status:
+          quantity > 0
+            ? InventoryStatus.AVAILABLE
+            : InventoryStatus.OUT_OF_STOCK,
+      });
+      return this.inventoryRepo.save(inventory);
+    }
+
+    inventory.quantityAvailable = quantity;
+    inventory.status =
+      inventory.quantityAvailable - inventory.quantityReserved > 0
+        ? InventoryStatus.AVAILABLE
+        : InventoryStatus.OUT_OF_STOCK;
+    return this.inventoryRepo.save(inventory);
   }
 }
 

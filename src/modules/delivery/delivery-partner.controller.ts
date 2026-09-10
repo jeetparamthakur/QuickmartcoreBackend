@@ -19,7 +19,13 @@ import { UserType, DeliveryPartnerPreference } from '../../common/enums';
 import { DeliveryAssignmentService } from './delivery-assignment.service';
 import { DeliveryTrackingService } from './delivery-tracking.service';
 import { DeliveryPartnerProfileService } from './delivery-partner-profile.service';
-import { IsBoolean, IsEnum, IsNumberString, IsOptional, IsString } from 'class-validator';
+import {
+  IsBoolean,
+  IsEnum,
+  IsNumberString,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 
 class UpdateLocationDto {
   @IsNumberString()
@@ -78,7 +84,10 @@ export class DeliveryPartnerController {
   }
 
   @Patch('preference')
-  setPreference(@Req() req: { user: AuthenticatedUser }, @Body() dto: PreferenceDto) {
+  setPreference(
+    @Req() req: { user: AuthenticatedUser },
+    @Body() dto: PreferenceDto,
+  ) {
     return this.profileService.updatePreference(req.user.id, dto.preference);
   }
 
@@ -130,8 +139,15 @@ export class DeliveryPartnerController {
   }
 
   @Patch('location')
-  updateLocation(@Req() req: { user: AuthenticatedUser }, @Body() dto: UpdateLocationDto) {
-    return this.trackingService.updateLocation(this.partnerId(req), dto.lat, dto.lng);
+  updateLocation(
+    @Req() req: { user: AuthenticatedUser },
+    @Body() dto: UpdateLocationDto,
+  ) {
+    return this.trackingService.updateLocation(
+      this.partnerId(req),
+      dto.lat,
+      dto.lng,
+    );
   }
 
   @Get('location')
@@ -140,7 +156,13 @@ export class DeliveryPartnerController {
   }
 
   @Patch('online-status')
-  setOnline(@Req() req: { user: AuthenticatedUser }, @Body() dto: SetOnlineDto) {
-    return this.trackingService.setOnlineStatus(this.partnerId(req), dto.isOnline);
+  setOnline(
+    @Req() req: { user: AuthenticatedUser },
+    @Body() dto: SetOnlineDto,
+  ) {
+    return this.trackingService.setOnlineStatus(
+      this.partnerId(req),
+      dto.isOnline,
+    );
   }
 }

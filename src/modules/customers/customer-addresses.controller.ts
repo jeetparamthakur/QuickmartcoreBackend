@@ -14,7 +14,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
-import { AuthenticatedUser, Roles } from '../../common/decorators/auth.decorators';
+import {
+  AuthenticatedUser,
+  Roles,
+} from '../../common/decorators/auth.decorators';
 import { UserType } from '../../common/enums';
 import { CustomerAddressEntity } from './entities/customer-address.entity';
 import { Inject } from '@nestjs/common';
@@ -65,17 +68,27 @@ export class CustomerAddressesController {
   @Get()
   async list(@Req() req: { user: AuthenticatedUser }) {
     const customerId = await this.customerId(req.user.id);
-    return this.addresses.find({ where: { customerId }, order: { createdAt: 'DESC' } });
+    return this.addresses.find({
+      where: { customerId },
+      order: { createdAt: 'DESC' },
+    });
   }
 
   @Post()
-  async create(@Req() req: { user: AuthenticatedUser }, @Body() dto: AddressDto) {
+  async create(
+    @Req() req: { user: AuthenticatedUser },
+    @Body() dto: AddressDto,
+  ) {
     const customerId = await this.customerId(req.user.id);
     if (dto.isDefault) {
       await this.addresses.update({ customerId }, { isDefault: false });
     }
     return this.addresses.save(
-      this.addresses.create({ ...dto, customerId, isDefault: dto.isDefault ?? false }),
+      this.addresses.create({
+        ...dto,
+        customerId,
+        isDefault: dto.isDefault ?? false,
+      }),
     );
   }
 
@@ -86,7 +99,9 @@ export class CustomerAddressesController {
     @Body() dto: Partial<AddressDto>,
   ) {
     const customerId = await this.customerId(req.user.id);
-    const existing = await this.addresses.findOne({ where: { id, customerId } });
+    const existing = await this.addresses.findOne({
+      where: { id, customerId },
+    });
     if (!existing) throw new NotFoundException('Address not found');
     if (dto.isDefault) {
       await this.addresses.update({ customerId }, { isDefault: false });

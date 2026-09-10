@@ -13,7 +13,13 @@ export class OfferEntity extends BaseEntity {
   @Column({ name: 'image_url', type: 'varchar', length: 500, nullable: true })
   imageUrl?: string | null;
 
-  @Column({ name: 'discount_percent', type: 'decimal', precision: 5, scale: 2, nullable: true })
+  @Column({
+    name: 'discount_percent',
+    type: 'decimal',
+    precision: 5,
+    scale: 2,
+    nullable: true,
+  })
   discountPercent?: string | null;
 
   @Column({ name: 'starts_at', type: 'timestamptz', nullable: true })
@@ -24,4 +30,12 @@ export class OfferEntity extends BaseEntity {
 
   @Column({ type: 'enum', enum: OfferStatus, default: OfferStatus.ACTIVE })
   status!: OfferStatus;
+
+  @Column({
+    name: 'linked_coupon_code',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+  })
+  linkedCouponCode?: string | null;
 }

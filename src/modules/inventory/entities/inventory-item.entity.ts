@@ -1,4 +1,11 @@
-import { Column, Entity, Index, JoinColumn, OneToOne, VersionColumn } from 'typeorm';
+import {
+  Column,
+  Entity,
+  Index,
+  JoinColumn,
+  OneToOne,
+  VersionColumn,
+} from 'typeorm';
 import { BaseEntity } from '../../../common/entities/base.entity';
 import { InventoryStatus } from '../../../common/enums';
 import { SellerProductEntity } from '../../products/entities/seller-product.entity';

@@ -12,13 +12,23 @@ export class KycDocumentEntity extends BaseEntity {
   @Column({ type: 'enum', enum: KycDocumentType })
   type!: KycDocumentType;
 
-  @Column({ name: 'file_url', type: 'varchar', length: 512 })
+  @Column({ name: 'file_url', type: 'varchar', length: 1024 })
   fileUrl!: string;
+
+  @Column({
+    name: 'cloudinary_public_id',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
+  cloudinaryPublicId?: string | null;
 
   @Column({ name: 'uploaded_at', type: 'timestamptz' })
   uploadedAt!: Date;
 
-  @ManyToOne(() => KycSubmissionEntity, (s) => s.documents, { onDelete: 'CASCADE' })
+  @ManyToOne(() => KycSubmissionEntity, (s) => s.documents, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'submission_id' })
   submission!: KycSubmissionEntity;
 }

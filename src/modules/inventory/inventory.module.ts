@@ -6,10 +6,7 @@ import { InventoryRepository, InventoryService } from './inventory.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([
-      InventoryItemEntity,
-      InventoryReservationEntity,
-    ]),
+    TypeOrmModule.forFeature([InventoryItemEntity, InventoryReservationEntity]),
   ],
   providers: [InventoryRepository, InventoryService],
   exports: [InventoryService, InventoryRepository],

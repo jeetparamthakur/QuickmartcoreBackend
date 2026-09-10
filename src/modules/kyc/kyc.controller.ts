@@ -13,7 +13,10 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
-import { AuthenticatedUser, Roles } from '../../common/decorators/auth.decorators';
+import {
+  AuthenticatedUser,
+  Roles,
+} from '../../common/decorators/auth.decorators';
 import { UserType } from '../../common/enums';
 import { KycService } from './kyc.service';
 import { CompleteOnboardingDto, UpdateOnboardingDto } from './dto/kyc.dto';
@@ -54,7 +57,11 @@ export class KycController {
     @Req() req: { user: AuthenticatedUser },
     @Body() dto: UpdateOnboardingDto,
   ) {
-    return this.kycService.updateOnboarding(req.user.id, req.user.userType, dto);
+    return this.kycService.updateOnboarding(
+      req.user.id,
+      req.user.userType,
+      dto,
+    );
   }
 
   @Post('onboarding/complete')
@@ -62,6 +69,10 @@ export class KycController {
     @Req() req: { user: AuthenticatedUser },
     @Body() dto: CompleteOnboardingDto,
   ) {
-    return this.kycService.completeOnboarding(req.user.id, req.user.userType, dto);
+    return this.kycService.completeOnboarding(
+      req.user.id,
+      req.user.userType,
+      dto,
+    );
   }
 }

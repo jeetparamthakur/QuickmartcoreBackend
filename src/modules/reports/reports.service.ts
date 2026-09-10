@@ -41,7 +41,7 @@ export class ReportsService {
       jobId,
       status: state,
       progress: job.progress,
-      result: job.returnvalue,
+      result: job.returnvalue as unknown,
     };
   }
 }

@@ -15,7 +15,9 @@ export class StoresRepository {
   }
 
   findAllActive() {
-    return this.repo.find({ where: { status: 'ACTIVE' as StoreEntity['status'] } });
+    return this.repo.find({
+      where: { status: 'ACTIVE' as StoreEntity['status'] },
+    });
   }
 
   create(data: Partial<StoreEntity>) {

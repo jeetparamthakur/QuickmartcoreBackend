@@ -1,4 +1,11 @@
-import { Column, Entity, Index, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
+import {
+  Column,
+  Entity,
+  Index,
+  JoinColumn,
+  ManyToOne,
+  OneToMany,
+} from 'typeorm';
 import { SoftDeleteEntity } from '../../../common/entities/base.entity';
 import { StoreStatus } from '../../../common/enums';
 import { StoreOwnerProfileEntity } from './store-owner-profile.entity';
@@ -30,6 +37,9 @@ export class StoreEntity extends SoftDeleteEntity {
     default: 5,
   })
   serviceRadiusKm!: string;
+
+  @Column({ type: 'jsonb', nullable: true })
+  details?: object | null;
 
   @Column({ type: 'enum', enum: StoreStatus, default: StoreStatus.ACTIVE })
   status!: StoreStatus;

@@ -15,4 +15,8 @@ export const envValidationSchema = Joi.object({
   SKIP_DB: Joi.string().valid('true', 'false').default('false'),
   GST_RATE: Joi.number().min(0).max(1).default(0),
   OTP_DEV_MODE: Joi.string().valid('true', 'false').default('true'),
+  CLOUDINARY_CLOUD_NAME: Joi.string().allow('').optional(),
+  CLOUDINARY_API_KEY: Joi.string().allow('').optional(),
+  CLOUDINARY_API_SECRET: Joi.string().allow('').optional(),
+  CLOUDINARY_FOLDER: Joi.string().default('QuickmartApp'),
 });

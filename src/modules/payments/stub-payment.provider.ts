@@ -6,17 +6,17 @@ import {
 
 @Injectable()
 export class StubPaymentProvider implements PaymentProviderPort {
-  async initiatePayment(
+  initiatePayment(
     _amount: string,
     referenceId: string,
   ): Promise<PaymentProviderResult> {
-    return {
+    return Promise.resolve({
       success: true,
       providerRef: `stub_${referenceId}_${Date.now()}`,
-    };
+    });
   }
 
-  async verifyPayment(providerRef: string): Promise<PaymentProviderResult> {
-    return { success: true, providerRef };
+  verifyPayment(providerRef: string): Promise<PaymentProviderResult> {
+    return Promise.resolve({ success: true, providerRef });
   }
 }

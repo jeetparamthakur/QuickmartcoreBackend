@@ -43,7 +43,10 @@ export class AdvertisementsAdminController {
 
   @Patch(':id')
   @RequirePermissions('admin:all')
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: Partial<CreateAdvertisementDto>) {
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: Partial<CreateAdvertisementDto>,
+  ) {
     return this.service.update(id, dto);
   }
 

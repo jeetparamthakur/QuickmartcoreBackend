@@ -5,7 +5,6 @@ import {
   DeliveryAssignmentStatus,
   DeliveryPartnerPreference,
   SubOrderStatus,
-  UserType,
 } from '../../common/enums';
 import { DeliveryPartnerProfileEntity } from '../delivery-partners/entities/delivery-partner-profile.entity';
 import { DeliveryAssignmentEntity } from './entities/delivery-assignment.entity';
@@ -26,11 +25,15 @@ export class DeliveryPartnerProfileService {
 
   async getByUserId(userId: string) {
     const profile = await this.profiles.findOne({ where: { userId } });
-    if (!profile) throw new NotFoundException('Delivery partner profile not found');
+    if (!profile)
+      throw new NotFoundException('Delivery partner profile not found');
     return profile;
   }
 
-  async register(userId: string, data: { fullName: string; preference?: DeliveryPartnerPreference }) {
+  async register(
+    userId: string,
+    data: { fullName: string; preference?: DeliveryPartnerPreference },
+  ) {
     let profile = await this.profiles.findOne({ where: { userId } });
     if (!profile) {
       profile = await this.profiles.save(
@@ -49,7 +52,10 @@ export class DeliveryPartnerProfileService {
     return profile;
   }
 
-  async updatePreference(userId: string, preference: DeliveryPartnerPreference) {
+  async updatePreference(
+    userId: string,
+    preference: DeliveryPartnerPreference,
+  ) {
     const profile = await this.getByUserId(userId);
     profile.preference = preference;
     return this.profiles.save(profile);

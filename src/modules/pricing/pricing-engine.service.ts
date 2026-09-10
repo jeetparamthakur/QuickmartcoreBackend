@@ -1,12 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ChargesEngineService } from '../charges/charges-engine.service';
+import {
+  ChargeLineItem,
+  ChargesEngineService,
+} from '../charges/charges-engine.service';
+import { CouponEngineService } from '../coupons/coupon-engine.service';
+import { CouponFundingSource, SellerType } from '../../common/enums';
 
 export interface PricingLineItem {
   sellerProductId: string;
   quantity: number;
   unitPrice: number;
-  sellerType: string;
+  sellerType: SellerType;
   storeId?: string | null;
   independentSellerId?: string | null;
 }
@@ -15,20 +20,27 @@ export interface PricingInput {
   items: PricingLineItem[];
   distanceKm?: number;
   zoneId?: string | null;
+  couponCode?: string | null;
+  customerId?: string;
 }
 
 export interface PricingBreakdown {
   subtotal: number;
   discountTotal: number;
   deliveryFee: number;
+  charges: ChargeLineItem[];
   platformFee: number;
   taxTotal: number;
   totalPayable: number;
+  couponId?: string;
+  couponCode?: string;
+  fundingSource?: CouponFundingSource;
   sellerGroups: Array<{
-    sellerType: string;
+    sellerType: SellerType;
     storeId?: string | null;
     independentSellerId?: string | null;
     subtotal: number;
+    discountTotal: number;
     deliveryFee: number;
   }>;
 }
@@ -38,6 +50,7 @@ export class PricingEngineService {
   constructor(
     private readonly chargesEngine: ChargesEngineService,
     private readonly config: ConfigService,
+    private readonly couponEngine: CouponEngineService,
   ) {}
 
   async calculateCheckout(input: PricingInput): Promise<PricingBreakdown> {
@@ -49,7 +62,7 @@ export class PricingEngineService {
     const groupMap = new Map<
       string,
       {
-        sellerType: string;
+        sellerType: SellerType;
         storeId?: string | null;
         independentSellerId?: string | null;
         subtotal: number;
@@ -58,7 +71,7 @@ export class PricingEngineService {
 
     for (const item of input.items) {
       const key =
-        item.sellerType === 'STORE'
+        item.sellerType === SellerType.STORE
           ? `store:${item.storeId}`
           : `independent:${item.independentSellerId}`;
       const existing = groupMap.get(key) ?? {
@@ -71,24 +84,50 @@ export class PricingEngineService {
       groupMap.set(key, existing);
     }
 
+    let discountTotal = 0;
+    let couponId: string | undefined;
+    let couponCode: string | undefined;
+    let fundingSource: CouponFundingSource | undefined;
+    const groupDiscountMap = new Map<string, number>();
+
+    if (input.couponCode && input.customerId) {
+      const couponResult = await this.couponEngine.validateAndCalculate(
+        input.couponCode,
+        { customerId: input.customerId, items: input.items },
+      );
+      discountTotal = couponResult.discountTotal;
+      couponId = couponResult.couponId;
+      couponCode = couponResult.couponCode;
+      fundingSource = couponResult.fundingSource;
+
+      for (const allocation of couponResult.groupAllocations) {
+        const key =
+          allocation.sellerType === 'STORE'
+            ? `store:${allocation.storeId}`
+            : `independent:${allocation.independentSellerId}`;
+        groupDiscountMap.set(key, allocation.discount);
+      }
+    }
+
     const deliveryFeePerGroup =
       (await this.chargesEngine.calculateDeliveryFee(
         input.distanceKm,
         input.zoneId,
       )) / Math.max(groupMap.size, 1);
 
-    const sellerGroups = [...groupMap.values()].map((g) => ({
+    const sellerGroups = [...groupMap.entries()].map(([key, g]) => ({
       ...g,
+      discountTotal: groupDiscountMap.get(key) ?? 0,
       deliveryFee: deliveryFeePerGroup,
     }));
 
     const deliveryFee = deliveryFeePerGroup * sellerGroups.length;
-    const platformFee = await this.chargesEngine.evaluateCharges(subtotal, {
+    const charges = await this.chargesEngine.evaluateChargeLines(subtotal, {
       cartTotal: subtotal,
       distanceKm: input.distanceKm,
       zoneId: input.zoneId,
     });
-    const discountTotal = 0;
+    const platformFee = charges.reduce((sum, charge) => sum + charge.amount, 0);
     const gstRate = this.config.get<number>('gstRate') ?? 0;
     const taxable = subtotal - discountTotal + deliveryFee + platformFee;
     const taxTotal = taxable * gstRate;
@@ -99,9 +138,13 @@ export class PricingEngineService {
       subtotal,
       discountTotal,
       deliveryFee,
+      charges,
       platformFee,
       taxTotal,
       totalPayable,
+      couponId,
+      couponCode,
+      fundingSource,
       sellerGroups,
     };
   }

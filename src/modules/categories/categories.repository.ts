@@ -21,6 +21,10 @@ export class CategoriesRepository {
     return this.repo.findOne({ where: { id } });
   }
 
+  findBySlug(slug: string) {
+    return this.repo.findOne({ where: { slug } });
+  }
+
   create(data: Partial<CategoryEntity>) {
     return this.repo.save(this.repo.create(data));
   }

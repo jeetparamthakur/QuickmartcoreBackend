@@ -7,9 +7,15 @@ import { ConflictException } from '@nestjs/common';
 import { InventoryRepository, InventoryService } from './inventory.service';
 import { InventoryStatus } from '../../common/enums';
 
+type MockManager = {
+  getRepository: jest.Mock;
+  save: jest.Mock;
+  create: jest.Mock;
+};
+
 describe('InventoryService', () => {
   it('throws INSUFFICIENT_STOCK when not enough available quantity', async () => {
-    const mockManager = {
+    const mockManager: MockManager = {
       getRepository: jest.fn().mockReturnValue({
         createQueryBuilder: jest.fn().mockReturnValue({
           setLock: jest.fn().mockReturnThis(),
@@ -26,10 +32,16 @@ describe('InventoryService', () => {
     };
 
     const dataSource = {
-      transaction: jest.fn((cb) => cb(mockManager)),
+      transaction: jest.fn((cb: (manager: MockManager) => unknown) =>
+        cb(mockManager),
+      ),
     };
 
-    const repo = new InventoryRepository({} as never, {} as never, dataSource as never);
+    const repo = new InventoryRepository(
+      {} as never,
+      {} as never,
+      dataSource as never,
+    );
     const service = new InventoryService(repo);
 
     await expect(
@@ -45,7 +57,7 @@ describe('InventoryService', () => {
       sellerProductId: 'prod-1',
     };
 
-    const mockManager = {
+    const mockManager: MockManager = {
       getRepository: jest.fn().mockReturnValue({
         createQueryBuilder: jest.fn().mockReturnValue({
           setLock: jest.fn().mockReturnThis(),
@@ -54,14 +66,22 @@ describe('InventoryService', () => {
         }),
       }),
       save: jest.fn().mockResolvedValue(undefined),
-      create: jest.fn((_entity, data) => data),
+      create: jest.fn(
+        (_entity: unknown, data: Record<string, unknown>) => data,
+      ),
     };
 
     const dataSource = {
-      transaction: jest.fn((cb) => cb(mockManager)),
+      transaction: jest.fn((cb: (manager: MockManager) => unknown) =>
+        cb(mockManager),
+      ),
     };
 
-    const repo = new InventoryRepository({} as never, {} as never, dataSource as never);
+    const repo = new InventoryRepository(
+      {} as never,
+      {} as never,
+      dataSource as never,
+    );
     const service = new InventoryService(repo);
 
     await expect(
@@ -69,9 +89,9 @@ describe('InventoryService', () => {
     ).resolves.toBeUndefined();
 
     expect(mockManager.save).toHaveBeenCalled();
-    const savedInventory = mockManager.save.mock.calls.find(
-      (call) => call[0]?.quantityReserved === 2,
-    );
+    const savedInventory = (
+      mockManager.save.mock.calls as Array<[Record<string, unknown>?]>
+    ).find((call) => call[0]?.quantityReserved === 2);
     expect(savedInventory).toBeDefined();
   });
 });
