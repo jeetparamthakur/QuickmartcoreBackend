@@ -20,6 +20,7 @@ export default () => ({
     process.env.DATABASE_URL ?? 'postgresql://param:param@localhost:5436/param',
   redisUrl: process.env.REDIS_URL ?? 'redis://localhost:6379',
   skipDb: process.env.SKIP_DB === 'true',
+  dbSyncOnStart: process.env.DB_SYNC_ON_START === 'true',
   corsOrigins: (process.env.CORS_ORIGINS ?? 'http://localhost:3000')
     .split(',')
     .map((o) => o.trim()),

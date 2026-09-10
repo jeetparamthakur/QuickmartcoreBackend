@@ -4,10 +4,21 @@ import { DataSource } from 'typeorm';
 import { ALL_ENTITIES } from '../src/database/database.module';
 import { ensureLocalDatabase, LOCAL_DB } from './local-db';
 
-async function syncDatabase(): Promise<void> {
-  await ensureLocalDatabase();
+function isExternalDatabaseUrl(url: string): boolean {
+  try {
+    const hostname = new URL(url).hostname;
+    return hostname !== 'localhost' && hostname !== '127.0.0.1';
+  } catch {
+    return false;
+  }
+}
 
+async function syncDatabase(): Promise<void> {
   const databaseUrl = process.env.DATABASE_URL ?? LOCAL_DB.url;
+
+  if (!isExternalDatabaseUrl(databaseUrl)) {
+    await ensureLocalDatabase();
+  }
   const dataSource = new DataSource({
     type: 'postgres',
     url: databaseUrl,

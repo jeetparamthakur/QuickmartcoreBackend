@@ -124,7 +124,9 @@ export const ALL_ENTITIES = [
         type: 'postgres' as const,
         url: config.get<string>('databaseUrl'),
         entities: ALL_ENTITIES,
-        synchronize: config.get<string>('nodeEnv') !== 'production',
+        synchronize:
+          config.get<string>('nodeEnv') !== 'production' ||
+          config.get<boolean>('dbSyncOnStart') === true,
         retryAttempts: 10,
         retryDelay: 3000,
       }),
