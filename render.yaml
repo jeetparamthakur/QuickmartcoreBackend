@@ -1,4 +1,9 @@
 services:
+  - type: keyvalue
+    name: quickmart-redis
+    ipAllowList: []
+    maxmemoryPolicy: noeviction
+
   - type: web
     name: quickmartcore-backend
     runtime: node
@@ -9,4 +14,9 @@ services:
       - key: NODE_ENV
         value: production
       - key: DB_SYNC_ON_START
-        value: "true"
+        value: 'true'
+      - key: REDIS_URL
+        fromService:
+          name: quickmart-redis
+          type: keyvalue
+          property: connectionString
