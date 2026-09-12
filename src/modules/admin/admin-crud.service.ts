@@ -9,6 +9,7 @@ import { DeliveryPartnerProfileEntity } from '../delivery-partners/entities/deli
 import { IndependentSellerEntity } from '../independent-sellers/entities/independent-seller.entity';
 import {
   LedgerEntryType,
+  PartnerType,
   PaymentStatus,
   StoreStatus,
 } from '../../common/enums';
@@ -43,9 +44,21 @@ export class AdminCrudService {
 
   listStores() {
     return this.stores.find({
-      relations: ['storeOwner'],
+      relations: ['storeOwner', 'storeOwner.user'],
       order: { createdAt: 'DESC' },
     });
+  }
+
+  listRestaurants() {
+    return this.stores
+      .createQueryBuilder('store')
+      .innerJoinAndSelect('store.storeOwner', 'owner')
+      .leftJoinAndSelect('owner.user', 'user')
+      .where('owner.partnerType = :partnerType', {
+        partnerType: PartnerType.FOOD_STORE,
+      })
+      .orderBy('store.createdAt', 'DESC')
+      .getMany();
   }
 
   async updateStoreStatus(id: string, status: StoreStatus) {

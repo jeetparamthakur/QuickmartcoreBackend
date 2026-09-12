@@ -24,6 +24,10 @@ export class UpdateOnboardingDto {
 
   @IsOptional()
   @IsObject()
+  foodSetup?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsObject()
   bankDetails?: Record<string, unknown>;
 }
 

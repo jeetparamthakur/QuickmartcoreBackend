@@ -232,6 +232,7 @@ export enum OnboardingStep {
   BUSINESS_DETAILS = 'business_details',
   STORE_DETAILS = 'store_details',
   SELLER_SETUP = 'seller_setup',
+  FOOD_SETUP = 'food_setup',
   KYC = 'kyc',
   BANK_SETUP = 'bank_setup',
   PENDING_APPROVAL = 'pending_approval',
@@ -248,6 +249,7 @@ export enum ApprovalStatus {
 export enum PartnerType {
   STORE = 'STORE',
   INDEPENDENT_SELLER = 'INDEPENDENT_SELLER',
+  FOOD_STORE = 'FOOD_STORE',
 }
 
 export enum StaffRole {

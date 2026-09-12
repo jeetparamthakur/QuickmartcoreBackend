@@ -48,6 +48,9 @@ export class SellerProfileEntity extends BaseEntity {
   @Column({ name: 'seller_setup', type: 'jsonb', nullable: true })
   sellerSetup?: object | null;
 
+  @Column({ name: 'food_setup', type: 'jsonb', nullable: true })
+  foodSetup?: object | null;
+
   @Column({ name: 'bank_details', type: 'jsonb', nullable: true })
   bankDetails?: object | null;
 

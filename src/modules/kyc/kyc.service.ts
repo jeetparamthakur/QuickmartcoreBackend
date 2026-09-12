@@ -26,6 +26,7 @@ import {
   UpdateOnboardingDto,
 } from './dto/kyc.dto';
 import { PartnerProvisioningService } from './partner-provisioning.service';
+import { randomUUID } from 'crypto';
 
 const REQUIRED_DOC_TYPES = [
   KycDocumentType.PAN,
@@ -43,6 +44,7 @@ type PartnerProfileRecord = {
   businessDetails?: object | null;
   storeDetails?: object | null;
   sellerSetup?: object | null;
+  foodSetup?: object | null;
   bankDetails?: object | null;
   userType: UserType;
   createdAt: string;
@@ -180,6 +182,7 @@ export class KycService {
       businessDetails: profile.businessDetails ?? undefined,
       storeDetails: profile.storeDetails ?? undefined,
       sellerSetup: profile.sellerSetup ?? undefined,
+      foodSetup: profile.foodSetup ?? undefined,
       bankDetails: profile.bankDetails ?? undefined,
     };
   }
@@ -262,6 +265,15 @@ export class KycService {
     };
   }
 
+  async uploadFoodImage(userId: string, file: Express.Multer.File) {
+    this.fileUploadService.validateFile(file);
+    const uploaded = await this.fileUploadService.uploadToCloudinary(file, {
+      folder: `${this.fileUploadService.getRootFolder()}/food/${userId}`,
+      publicId: randomUUID(),
+    });
+    return { success: true, url: uploaded.url };
+  }
+
   async submitKyc(userId: string) {
     const submission = await this.getOrCreateSubmission(userId);
     const docs = await this.documents.find({
@@ -321,6 +333,22 @@ export class KycService {
         ...(profile.sellerSetup ?? {}),
         ...dto.sellerSetup,
       };
+    }
+    if (dto.foodSetup) {
+      updates.foodSetup = {
+        ...(profile.foodSetup ?? {}),
+        ...dto.foodSetup,
+      };
+    }
+    if (
+      dto.onboardingStep === OnboardingStep.KYC &&
+      profile.partnerType === PartnerType.FOOD_STORE
+    ) {
+      const foodSetup = (updates.foodSetup ?? profile.foodSetup) as
+        | Record<string, unknown>
+        | null
+        | undefined;
+      this.validateFoodSetup(foodSetup);
     }
     if (dto.bankDetails) {
       updates.bankDetails = {
@@ -433,9 +461,54 @@ export class KycService {
       businessDetails: refreshed.businessDetails ?? undefined,
       storeDetails: refreshed.storeDetails ?? undefined,
       sellerSetup: refreshed.sellerSetup ?? undefined,
+      foodSetup: refreshed.foodSetup ?? undefined,
       bankDetails: refreshed.bankDetails ?? undefined,
       kyc,
     };
+  }
+
+  private validateFoodSetup(foodSetup?: Record<string, unknown> | null) {
+    if (!foodSetup) {
+      throw new BadRequestException('Food setup is required');
+    }
+
+    const name = foodSetup.name;
+    if (typeof name !== 'string' || !name.trim()) {
+      throw new BadRequestException('Restaurant name is required');
+    }
+
+    const items = foodSetup.items;
+    if (!Array.isArray(items) || items.length === 0) {
+      return;
+    }
+
+    for (const item of items) {
+      if (!item || typeof item !== 'object') {
+        throw new BadRequestException('Invalid food item');
+      }
+      const record = item as Record<string, unknown>;
+      const itemName = record.name;
+      const price = record.price;
+      const prepTimeMinutes = record.prepTimeMinutes;
+
+      if (typeof itemName !== 'string' || !itemName.trim()) {
+        throw new BadRequestException('Each food item must have a name');
+      }
+      if (typeof price !== 'number' || price <= 0) {
+        throw new BadRequestException(
+          'Each food item must have a price greater than 0',
+        );
+      }
+      if (
+        typeof prepTimeMinutes !== 'number' ||
+        prepTimeMinutes < 0 ||
+        !Number.isFinite(prepTimeMinutes)
+      ) {
+        throw new BadRequestException(
+          'Each food item must have a valid prep time',
+        );
+      }
+    }
   }
 
   private mapDocument(d: KycDocumentEntity) {
@@ -540,6 +613,7 @@ export class KycService {
         businessDetails: seller.businessDetails,
         storeDetails: seller.storeDetails,
         sellerSetup: seller.sellerSetup,
+        foodSetup: seller.foodSetup,
         bankDetails: seller.bankDetails,
         userType: UserType.SELLER,
         createdAt: seller.createdAt.toISOString(),
@@ -557,6 +631,7 @@ export class KycService {
         approvalStatus: owner.approvalStatus,
         businessDetails: owner.businessDetails,
         storeDetails: owner.storeDetails,
+        foodSetup: owner.foodSetup,
         bankDetails: owner.bankDetails,
         userType: UserType.STORE_OWNER,
         createdAt: owner.createdAt.toISOString(),
@@ -585,6 +660,7 @@ export class KycService {
         approvalStatus: profile.approvalStatus,
         businessDetails: profile.businessDetails,
         storeDetails: profile.storeDetails,
+        foodSetup: profile.foodSetup,
         bankDetails: profile.bankDetails,
         userType,
         createdAt: profile.createdAt.toISOString(),
@@ -603,6 +679,7 @@ export class KycService {
       businessDetails: profile.businessDetails,
       storeDetails: profile.storeDetails,
       sellerSetup: profile.sellerSetup,
+      foodSetup: profile.foodSetup,
       bankDetails: profile.bankDetails,
       userType,
       createdAt: profile.createdAt.toISOString(),
@@ -630,6 +707,8 @@ export class KycService {
         profile.businessDetails = updates.businessDetails;
       if (updates.storeDetails !== undefined)
         profile.storeDetails = updates.storeDetails;
+      if (updates.foodSetup !== undefined)
+        profile.foodSetup = updates.foodSetup;
       if (updates.bankDetails !== undefined)
         profile.bankDetails = updates.bankDetails;
       await this.storeOwnerProfiles.save(profile);
@@ -648,6 +727,8 @@ export class KycService {
       profile.storeDetails = updates.storeDetails;
     if (updates.sellerSetup !== undefined)
       profile.sellerSetup = updates.sellerSetup;
+    if (updates.foodSetup !== undefined)
+      profile.foodSetup = updates.foodSetup;
     if (updates.bankDetails !== undefined)
       profile.bankDetails = updates.bankDetails;
     await this.sellerProfiles.save(profile);

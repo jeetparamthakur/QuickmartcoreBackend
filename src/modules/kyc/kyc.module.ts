@@ -2,6 +2,9 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { FileUploadModule } from '../file-upload/file-upload.module';
 import { UsersModule } from '../users/users.module';
+import { ProductsModule } from '../products/products.module';
+import { InventoryModule } from '../inventory/inventory.module';
+import { CategoriesModule } from '../categories/categories.module';
 import { SellerProfileEntity } from '../sellers/entities/seller-profile.entity';
 import { StoreOwnerProfileEntity } from '../stores/entities/store-owner-profile.entity';
 import { StoreEntity } from '../stores/entities/store.entity';
@@ -29,6 +32,9 @@ import { KycAdminController } from './kyc-admin.controller';
     ]),
     FileUploadModule,
     UsersModule,
+    ProductsModule,
+    InventoryModule,
+    CategoriesModule,
   ],
   controllers: [KycController, KycAdminController],
   providers: [KycService, PartnerProvisioningService],

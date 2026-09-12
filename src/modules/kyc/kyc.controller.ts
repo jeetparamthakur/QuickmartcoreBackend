@@ -52,6 +52,20 @@ export class KycController {
     return this.kycService.submitKyc(req.user.id);
   }
 
+  @Post('onboarding/food-image')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: 5 * 1024 * 1024 },
+    }),
+  )
+  uploadFoodImage(
+    @Req() req: { user: AuthenticatedUser },
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.kycService.uploadFoodImage(req.user.id, file);
+  }
+
   @Patch('onboarding')
   updateOnboarding(
     @Req() req: { user: AuthenticatedUser },

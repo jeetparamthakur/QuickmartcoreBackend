@@ -42,6 +42,12 @@ export class AdminCrudController {
     return this.adminCrud.listStores();
   }
 
+  @Get('restaurants')
+  @RequirePermissions('admin:all')
+  listRestaurants() {
+    return this.adminCrud.listRestaurants();
+  }
+
   @Patch('stores/:id/status')
   @RequirePermissions('admin:all')
   updateStoreStatus(

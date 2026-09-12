@@ -4,9 +4,13 @@ import { Repository } from 'typeorm';
 import {
   IndependentSellerStatus,
   PartnerType,
+  SellerType,
   StoreStatus,
   UserType,
 } from '../../common/enums';
+import { ProductsRepository } from '../products/products.repository';
+import { InventoryRepository } from '../inventory/inventory.service';
+import { CategoriesRepository } from '../categories/categories.repository';
 import { USERS_REPOSITORY } from '../users/users.repository.port';
 import type { UsersRepositoryPort } from '../users/users.repository.port';
 import { SellerProfileEntity } from '../sellers/entities/seller-profile.entity';
@@ -27,12 +31,20 @@ export class PartnerProvisioningService {
     private readonly independentSellers: Repository<IndependentSellerEntity>,
     @Inject(USERS_REPOSITORY)
     private readonly usersRepo: UsersRepositoryPort,
+    private readonly productsRepo: ProductsRepository,
+    private readonly inventoryRepo: InventoryRepository,
+    private readonly categoriesRepo: CategoriesRepository,
   ) {}
 
   async provisionForUser(userId: string, activate = false) {
     const seller = await this.sellerProfiles.findOne({ where: { userId } });
     if (seller?.partnerType === PartnerType.STORE) {
       await this.provisionStorePartner(userId, seller, activate);
+      return;
+    }
+
+    if (seller?.partnerType === PartnerType.FOOD_STORE) {
+      await this.provisionFoodStorePartner(userId, seller, activate);
       return;
     }
 
@@ -43,7 +55,10 @@ export class PartnerProvisioningService {
 
     const owner = await this.storeOwnerProfiles.findOne({ where: { userId } });
     if (owner) {
-      await this.ensureStoreFromOwnerProfile(owner, activate);
+      const store = await this.ensureStoreFromOwnerProfile(owner, activate);
+      if (activate && owner.partnerType === PartnerType.FOOD_STORE) {
+        await this.provisionFoodItemsFromProfile(owner, store);
+      }
     }
   }
 
@@ -112,6 +127,49 @@ export class PartnerProvisioningService {
     await this.ensureStoreFromOwnerProfile(owner, activate);
   }
 
+  private async provisionFoodStorePartner(
+    userId: string,
+    seller: SellerProfileEntity,
+    activate: boolean,
+  ) {
+    let owner = await this.storeOwnerProfiles.findOne({ where: { userId } });
+
+    if (!owner) {
+      owner = await this.storeOwnerProfiles.save(
+        this.storeOwnerProfiles.create({
+          userId,
+          fullName:
+            this.readString(seller.businessDetails, 'fullName') ??
+            seller.businessName,
+          partnerType: PartnerType.FOOD_STORE,
+          onboardingStep: seller.onboardingStep,
+          approvalStatus: seller.approvalStatus,
+          businessDetails: seller.businessDetails,
+          foodSetup: seller.foodSetup,
+          bankDetails: seller.bankDetails,
+        }),
+      );
+
+      const user = await this.usersRepo.findById(userId);
+      if (user && user.userType === UserType.SELLER) {
+        await this.usersRepo.update(userId, { userType: UserType.STORE_OWNER });
+      }
+    } else {
+      owner.businessDetails = seller.businessDetails ?? owner.businessDetails;
+      owner.foodSetup = seller.foodSetup ?? owner.foodSetup;
+      owner.bankDetails = seller.bankDetails ?? owner.bankDetails;
+      owner.onboardingStep = seller.onboardingStep;
+      owner.approvalStatus = seller.approvalStatus;
+      owner.partnerType = PartnerType.FOOD_STORE;
+      await this.storeOwnerProfiles.save(owner);
+    }
+
+    const store = await this.ensureStoreFromOwnerProfile(owner, activate);
+    if (activate) {
+      await this.provisionFoodItemsFromProfile(owner, store);
+    }
+  }
+
   private async ensureStoreFromOwnerProfile(
     owner: StoreOwnerProfileEntity,
     activate: boolean,
@@ -127,34 +185,132 @@ export class PartnerProvisioningService {
       return existing;
     }
 
-    const storeDetails = (owner.storeDetails ?? {}) as Record<string, unknown>;
+    const locationDetails = this.resolveLocationDetails(owner);
     const businessDetails = (owner.businessDetails ?? {}) as Record<
       string,
       unknown
     >;
     const name =
-      this.readString(storeDetails, 'name') ??
+      this.readString(locationDetails, 'name') ??
       this.readString(businessDetails, 'storeName') ??
       owner.fullName;
 
     if (!name) return null;
 
-    const latitude = this.readNumber(storeDetails, 'latitude');
-    const longitude = this.readNumber(storeDetails, 'longitude');
-    const deliveryRadius = this.readNumber(storeDetails, 'deliveryRadius') ?? 5;
+    const latitude = this.readNumber(locationDetails, 'latitude');
+    const longitude = this.readNumber(locationDetails, 'longitude');
+    const deliveryRadius =
+      this.readNumber(locationDetails, 'deliveryRadius') ?? 5;
 
     return this.stores.save(
       this.stores.create({
         storeOwnerId: owner.id,
         name,
-        address: this.formatAddress(storeDetails),
+        address: this.formatAddress(locationDetails),
         lat: latitude !== null ? String(latitude) : null,
         lng: longitude !== null ? String(longitude) : null,
         serviceRadiusKm: String(deliveryRadius),
-        details: storeDetails,
+        details: locationDetails,
         status: activate ? StoreStatus.ACTIVE : StoreStatus.INACTIVE,
       }),
     );
+  }
+
+  private resolveLocationDetails(owner: StoreOwnerProfileEntity) {
+    const foodSetup = (owner.foodSetup ?? {}) as Record<string, unknown>;
+    const storeDetails = (owner.storeDetails ?? {}) as Record<string, unknown>;
+    if (owner.partnerType === PartnerType.FOOD_STORE && Object.keys(foodSetup).length > 0) {
+      return foodSetup;
+    }
+    return storeDetails;
+  }
+
+  private async provisionFoodItemsFromProfile(
+    owner: StoreOwnerProfileEntity,
+    store: StoreEntity | null,
+  ) {
+    if (!store) return;
+
+    const foodSetup = (owner.foodSetup ?? {}) as Record<string, unknown>;
+    if (foodSetup.itemsProvisioned === true) return;
+
+    const items = foodSetup.items;
+    if (!Array.isArray(items) || items.length === 0) return;
+
+    const existingProducts = await this.productsRepo.findByStoreId(store.id);
+    if (existingProducts.length > 0) {
+      owner.foodSetup = { ...foodSetup, itemsProvisioned: true };
+      await this.storeOwnerProfiles.save(owner);
+      return;
+    }
+
+    const categoryId = await this.resolveFoodCategoryId();
+
+    for (const item of items) {
+      if (!item || typeof item !== 'object') continue;
+      const record = item as Record<string, unknown>;
+      const name = this.readString(record, 'name');
+      const price = this.readNumber(record, 'price');
+      if (!name || price === null || price <= 0) continue;
+
+      const description = this.readString(record, 'description') ?? '';
+      const isVeg = record.isVeg === true;
+      const prepTimeMinutes = this.readNumber(record, 'prepTimeMinutes') ?? 15;
+      const imageUrl = this.readString(record, 'imageUrl');
+      const images = imageUrl ? [imageUrl] : [];
+
+      const masterProduct = await this.productsRepo.createMasterProduct({
+        categoryId,
+        name,
+        description,
+        brand: null,
+        baseUnit: 'serving',
+        attributes: {
+          productType: 'food',
+          isVeg,
+          prepTimeMinutes,
+          images,
+          status: 'active',
+          categoryLabel: 'Food',
+        },
+      });
+
+      const sellerProduct = await this.productsRepo.createSellerProduct({
+        sellerType: SellerType.STORE,
+        storeId: store.id,
+        masterProductId: masterProduct.id,
+        title: name,
+        mrp: price.toFixed(2),
+        sellingPrice: price.toFixed(2),
+        isActive: true,
+      });
+
+      await this.inventoryRepo.upsertQuantity(sellerProduct.id, 999);
+    }
+
+    owner.foodSetup = { ...foodSetup, itemsProvisioned: true };
+    await this.storeOwnerProfiles.save(owner);
+
+    const seller = await this.sellerProfiles.findOne({
+      where: { userId: owner.userId },
+    });
+    if (seller) {
+      seller.foodSetup = owner.foodSetup;
+      await this.sellerProfiles.save(seller);
+    }
+  }
+
+  private async resolveFoodCategoryId() {
+    const existing = await this.categoriesRepo.findBySlug('food');
+    if (existing) return existing.id;
+
+    const created = await this.categoriesRepo.create({
+      name: 'Food',
+      slug: 'food',
+      sortOrder: 0,
+      isActive: true,
+    });
+    return created.id;
   }
 
   private async provisionIndependentSeller(
