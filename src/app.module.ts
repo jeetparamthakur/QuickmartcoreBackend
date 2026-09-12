@@ -46,6 +46,7 @@ import { FileUploadModule } from './modules/file-upload/file-upload.module';
 import { KycModule } from './modules/kyc/kyc.module';
 import { StaffModule } from './modules/staff/staff.module';
 import { JobsModule } from './jobs/jobs.module';
+import { shouldSkipRedis } from './config/redis-connection';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
@@ -98,8 +99,8 @@ import { PermissionsGuard } from './common/guards/permissions.guard';
     FileUploadModule,
     KycModule,
     StaffModule,
-    ...(process.env.SKIP_DB === 'true' ? [] : [JobsModule]),
-    ...(process.env.SKIP_DB === 'true' ? [] : [ReportsModule]),
+    ...(process.env.SKIP_DB === 'true' || shouldSkipRedis() ? [] : [JobsModule]),
+    ...(process.env.SKIP_DB === 'true' || shouldSkipRedis() ? [] : [ReportsModule]),
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

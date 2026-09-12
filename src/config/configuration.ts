@@ -35,8 +35,9 @@ export default () => {
     port: parseInt(process.env.PORT ?? '3000', 10),
     nodeEnv: process.env.NODE_ENV ?? 'development',
     databaseUrl,
-    redisUrl: process.env.REDIS_URL ?? 'redis://localhost:6379',
+    redisUrl: process.env.REDIS_URL ?? 'redis://127.0.0.1:6379',
     skipDb: process.env.SKIP_DB === 'true',
+    skipRedis: process.env.SKIP_REDIS === 'true',
     dbSyncOnStart,
     corsOrigins: (process.env.CORS_ORIGINS ?? 'http://localhost:3000')
       .split(',')

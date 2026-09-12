@@ -3,6 +3,7 @@ services:
     name: quickmart-redis
     ipAllowList: []
     maxmemoryPolicy: noeviction
+    plan: starter
 
   - type: web
     name: quickmartcore-backend
@@ -15,8 +16,12 @@ services:
         value: production
       - key: DB_SYNC_ON_START
         value: 'true'
+      # Required: link Render Postgres (or your DB) in the dashboard if not using a DB blueprint entry.
       - key: REDIS_URL
         fromService:
           name: quickmart-redis
           type: keyvalue
           property: connectionString
+      # Optional fallback if you intentionally run without Redis (disables background jobs):
+      # - key: SKIP_REDIS
+      #   value: 'true'
