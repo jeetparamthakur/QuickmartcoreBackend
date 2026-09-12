@@ -5,8 +5,30 @@ import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { RequestIdInterceptor } from './common/interceptors/request-id.interceptor';
+import {
+  ensureLocalRedis,
+  type LocalRedis,
+} from './bootstrap/local-redis';
+
+async function ensureDevRedis(): Promise<LocalRedis | null> {
+  if (process.env.NODE_ENV === 'production') {
+    return null;
+  }
+
+  const { redis } = await ensureLocalRedis();
+  return redis;
+}
 
 async function bootstrap() {
+  const embeddedRedis = await ensureDevRedis();
+
+  const stopEmbeddedRedis = async () => {
+    await embeddedRedis?.stop().catch(() => undefined);
+  };
+
+  process.once('SIGINT', () => void stopEmbeddedRedis());
+  process.once('SIGTERM', () => void stopEmbeddedRedis());
+
   const app = await NestFactory.create(AppModule);
   const config = app.get(ConfigService);
 
