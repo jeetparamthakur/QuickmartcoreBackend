@@ -1,10 +1,10 @@
 import { config as loadEnv } from 'dotenv';
 import { spawn, type ChildProcess } from 'child_process';
 import { createServer } from 'net';
-import { ensureLocalDatabase, type LocalPostgres } from './local-db';
+import { ensureLocalDatabase, LOCAL_DB, type LocalPostgres } from './local-db';
 import { ensureLocalRedis, type LocalRedis } from './local-redis';
 
-loadEnv();
+loadEnv({ override: true });
 
 async function assertPortAvailable(port: number): Promise<void> {
   await new Promise<void>((resolve, reject) => {
@@ -49,6 +49,8 @@ async function startDevServer() {
 
   if (!skipDb) {
     ({ pg } = await ensureLocalDatabase());
+    process.env.DATABASE_URL = LOCAL_DB.url;
+    process.env.NODE_ENV = 'development';
     ({ redis } = await ensureLocalRedis());
   }
 

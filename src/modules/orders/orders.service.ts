@@ -189,7 +189,15 @@ export class OrdersRepository {
   findParentOrderById(id: string, customerId?: string) {
     return this.parentOrders.findOne({
       where: customerId ? { id, customerId } : { id },
-      relations: ['subOrders', 'subOrders.items', 'subOrders.statusHistory'],
+      relations: [
+        'subOrders',
+        'subOrders.items',
+        'subOrders.items.sellerProduct',
+        'subOrders.items.sellerProduct.masterProduct',
+        'subOrders.store',
+        'subOrders.independentSeller',
+        'subOrders.statusHistory',
+      ],
     });
   }
 

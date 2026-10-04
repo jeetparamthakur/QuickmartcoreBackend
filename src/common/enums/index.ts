@@ -225,6 +225,9 @@ export enum KycDocumentType {
   GST = 'gst',
   BUSINESS = 'business',
   ADDRESS_PROOF = 'address_proof',
+  AADHAAR = 'aadhaar',
+  DRIVING_LICENSE = 'driving_license',
+  SELFIE = 'selfie',
 }
 
 export enum OnboardingStep {

@@ -22,4 +22,8 @@ export class CustomersRepository implements CustomersRepositoryPort {
   create(data: Partial<CustomerProfileEntity>) {
     return this.repo.save(this.repo.create(data));
   }
+
+  save(profile: CustomerProfileEntity) {
+    return this.repo.save(profile);
+  }
 }

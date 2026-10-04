@@ -8,14 +8,51 @@ export const LOCAL_DB = {
   port: 5436,
   user: 'param',
   password: 'param',
-  name: 'param',
-  url: 'postgresql://param:param@localhost:5436/param',
+  name: 'quiickdb',
+  url: 'postgresql://param:param@localhost:5436/quiickdb',
 } as const;
+
+const ADMIN_DB_CANDIDATES = [LOCAL_DB.user, 'postgres'] as const;
+
+function adminConnectionString(database: string): string {
+  return `postgresql://${LOCAL_DB.user}:${LOCAL_DB.password}@localhost:${LOCAL_DB.port}/${database}`;
+}
+
+export async function resolveAdminConnectionString(): Promise<string> {
+  for (const database of ADMIN_DB_CANDIDATES) {
+    const url = adminConnectionString(database);
+    if (await isDatabaseReady(url)) {
+      return url;
+    }
+  }
+
+  throw new Error(
+    `PostgreSQL is not running on port ${LOCAL_DB.port}. Run npm run db:init or npm run dev.`,
+  );
+}
+
+async function ensureDatabaseExists(databaseName: string): Promise<void> {
+  const adminUrl = await resolveAdminConnectionString();
+  const client = new Client({ connectionString: adminUrl });
+
+  try {
+    await client.connect();
+    const existing = await client.query(
+      'SELECT 1 FROM pg_database WHERE datname = $1',
+      [databaseName],
+    );
+    if (existing.rowCount === 0) {
+      await client.query(`CREATE DATABASE ${databaseName}`);
+    }
+  } finally {
+    await client.end().catch(() => undefined);
+  }
+}
 
 export type LocalPostgres = InstanceType<typeof EmbeddedPostgres>;
 
 export async function isDatabaseReady(
-  connectionString = LOCAL_DB.url,
+  connectionString: string = LOCAL_DB.url,
 ): Promise<boolean> {
   const client = new Client({ connectionString });
 
@@ -31,7 +68,7 @@ export async function isDatabaseReady(
 }
 
 export async function waitForDatabase(
-  connectionString = LOCAL_DB.url,
+  connectionString: string = LOCAL_DB.url,
   attempts = 30,
   delayMs = 500,
 ): Promise<void> {
@@ -76,9 +113,14 @@ export async function ensureLocalDatabase(): Promise<{
   pg: LocalPostgres | null;
   startedByUs: boolean;
 }> {
-  if (await isDatabaseReady()) {
-    console.log(`Using PostgreSQL at ${LOCAL_DB.url}`);
+  try {
+    await resolveAdminConnectionString();
+    await ensureDatabaseExists(LOCAL_DB.name);
+    await waitForDatabase();
+    console.log(`Using PostgreSQL at ${LOCAL_DB.url} (QuiickDB)`);
     return { pg: null, startedByUs: false };
+  } catch {
+    // Server not up yet — start embedded Postgres below.
   }
 
   console.log('Starting m3bd PostgreSQL on port 5436 (separate from Markos on 5435)...');
@@ -87,15 +129,18 @@ export async function ensureLocalDatabase(): Promise<{
     const pg = await startEmbeddedPostgres();
     await waitForDatabase();
     console.log(
-      `Local PostgreSQL running on port ${LOCAL_DB.port} (${LOCAL_DB.user}/${LOCAL_DB.password}, db: ${LOCAL_DB.name})`,
+      `Local PostgreSQL running on port ${LOCAL_DB.port} (${LOCAL_DB.user}/${LOCAL_DB.password}, db: ${LOCAL_DB.name} / QuiickDB)`,
     );
     return { pg, startedByUs: true };
   } catch (error) {
-    if (await isDatabaseReady()) {
-      console.log(`Using PostgreSQL at ${LOCAL_DB.url}`);
+    try {
+      await resolveAdminConnectionString();
+      await ensureDatabaseExists(LOCAL_DB.name);
+      await waitForDatabase();
+      console.log(`Using PostgreSQL at ${LOCAL_DB.url} (QuiickDB)`);
       return { pg: null, startedByUs: false };
+    } catch {
+      throw error;
     }
-
-    throw error;
   }
 }

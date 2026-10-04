@@ -6,6 +6,7 @@ import {
   NotificationsService,
   NotificationsRepository,
 } from './notifications.service';
+import { ExpoPushService } from './expo-push.service';
 import {
   NotificationsController,
   NotificationsAdminController,
@@ -14,7 +15,7 @@ import {
 @Module({
   imports: [TypeOrmModule.forFeature([NotificationEntity, UserEntity])],
   controllers: [NotificationsController, NotificationsAdminController],
-  providers: [NotificationsService, NotificationsRepository],
-  exports: [NotificationsService],
+  providers: [NotificationsService, NotificationsRepository, ExpoPushService],
+  exports: [NotificationsService, ExpoPushService],
 })
 export class NotificationsModule {}

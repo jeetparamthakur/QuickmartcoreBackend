@@ -11,7 +11,9 @@ export const envValidationSchema = Joi.object({
   JWT_REFRESH_SECRET: Joi.string().min(16).required(),
   JWT_ACCESS_EXPIRES_IN: Joi.string().default('15m'),
   JWT_REFRESH_EXPIRES_IN: Joi.string().default('7d'),
-  CORS_ORIGINS: Joi.string().default('http://localhost:3000'),
+  CORS_ORIGINS: Joi.string().default(
+    'http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001,http://localhost:3007,http://localhost:8082,http://127.0.0.1:8082',
+  ),
   SKIP_DB: Joi.string().valid('true', 'false').default('false'),
   SKIP_REDIS: Joi.string().valid('true', 'false').default('false'),
   DB_SYNC_ON_START: Joi.string().valid('true', 'false').default('false'),

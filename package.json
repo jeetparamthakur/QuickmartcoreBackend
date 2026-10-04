@@ -21,10 +21,14 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
+    "db:init": "ts-node -r tsconfig-paths/register scripts/init-local-db.ts",
     "db:local": "ts-node -r tsconfig-paths/register scripts/start-local-db.ts",
     "db:sync": "ts-node -r tsconfig-paths/register scripts/sync-db.ts",
+    "db:wipe": "ts-node -r tsconfig-paths/register scripts/wipe-db.ts",
     "redis:local": "ts-node -r tsconfig-paths/register scripts/start-local-redis.ts",
-    "seed": "ts-node -r tsconfig-paths/register scripts/seed.ts"
+    "seed": "ts-node -r tsconfig-paths/register scripts/seed.ts",
+    "seed:dummy-delivery": "ts-node -r tsconfig-paths/register scripts/seed-dummy-delivery-order.ts",
+    "seed:fresh": "ts-node -r tsconfig-paths/register scripts/seed-fresh.ts"
   },
   "dependencies": {
     "@nestjs/bullmq": "^12.0.0",

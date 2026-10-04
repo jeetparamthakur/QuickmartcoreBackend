@@ -1,3 +1,5 @@
+import { parseCorsOrigins } from './cors';
+
 function isExternalDatabaseUrl(url?: string): boolean {
   if (!url) return false;
   try {
@@ -25,7 +27,7 @@ function resolveCloudinaryConfig() {
 
 export default () => {
   const databaseUrl =
-    process.env.DATABASE_URL ?? 'postgresql://param:param@localhost:5436/param';
+    process.env.DATABASE_URL ?? 'postgresql://param:param@localhost:5436/quiickdb';
   const dbSyncOnStart =
     process.env.DB_SYNC_ON_START === 'true' ||
     (process.env.DB_SYNC_ON_START !== 'false' &&
@@ -39,9 +41,7 @@ export default () => {
     skipDb: process.env.SKIP_DB === 'true',
     skipRedis: process.env.SKIP_REDIS === 'true',
     dbSyncOnStart,
-    corsOrigins: (process.env.CORS_ORIGINS ?? 'http://localhost:3000')
-      .split(',')
-      .map((o) => o.trim()),
+    corsOrigins: parseCorsOrigins(process.env.CORS_ORIGINS),
     jwt: {
       secret: process.env.JWT_SECRET ?? 'dev-secret-change-me',
       refreshSecret:
@@ -53,5 +53,8 @@ export default () => {
     uploadDir: process.env.UPLOAD_DIR ?? 'uploads',
     otpDevMode: process.env.OTP_DEV_MODE !== 'false',
     cloudinary: resolveCloudinaryConfig(),
+    expo: {
+      accessToken: process.env.EXPO_ACCESS_TOKEN ?? '',
+    },
   };
 };

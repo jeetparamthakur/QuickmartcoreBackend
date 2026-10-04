@@ -13,6 +13,8 @@ import type { AccessControlRepositoryPort } from './access-control.repository';
 const PERMISSIONS = [
   { key: 'cart:read', description: 'View cart' },
   { key: 'cart:write', description: 'Modify cart' },
+  { key: 'wishlist:read', description: 'View wishlist' },
+  { key: 'wishlist:write', description: 'Modify wishlist' },
   { key: 'orders:read', description: 'View orders' },
   { key: 'orders:write', description: 'Create/cancel orders' },
   { key: 'products:read', description: 'View products' },
@@ -26,6 +28,8 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
   CUSTOMER: [
     'cart:read',
     'cart:write',
+    'wishlist:read',
+    'wishlist:write',
     'orders:read',
     'orders:write',
     'products:read',
@@ -64,6 +68,8 @@ export class AccessControlSeedService implements OnApplicationBootstrap {
     const count = await this.rolesRepo.count();
     if (count === 0) {
       await this.seedRolesAndPermissions();
+    } else {
+      await this.ensurePermissionsCatalog();
     }
     await this.ensureAdminRoleAssignments();
   }
@@ -103,6 +109,44 @@ export class AccessControlSeedService implements OnApplicationBootstrap {
             permissionId: permission.id,
           }),
         );
+      }
+    }
+  }
+
+  /** Keeps permissions + role links in sync when new capabilities are added after first seed. */
+  private async ensurePermissionsCatalog() {
+    const permissionMap = new Map<string, PermissionEntity>();
+    for (const p of PERMISSIONS) {
+      let permission = await this.permissionsRepo.findOne({
+        where: { key: p.key },
+      });
+      if (!permission) {
+        permission = await this.permissionsRepo.save(
+          this.permissionsRepo.create(p),
+        );
+      }
+      permissionMap.set(p.key, permission);
+    }
+
+    for (const [roleName, keys] of Object.entries(ROLE_PERMISSIONS)) {
+      const role = await this.rolesRepo.findOne({ where: { name: roleName } });
+      if (!role) continue;
+
+      for (const key of keys) {
+        const permission = permissionMap.get(key);
+        if (!permission) continue;
+
+        const linked = await this.rolePermissionsRepo.findOne({
+          where: { roleId: role.id, permissionId: permission.id },
+        });
+        if (!linked) {
+          await this.rolePermissionsRepo.save(
+            this.rolePermissionsRepo.create({
+              roleId: role.id,
+              permissionId: permission.id,
+            }),
+          );
+        }
       }
     }
   }

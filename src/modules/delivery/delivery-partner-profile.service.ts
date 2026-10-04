@@ -113,6 +113,27 @@ export class DeliveryPartnerProfileService {
     });
   }
 
+  async markOutForDelivery(assignmentId: string, partnerProfileId: string) {
+    const assignment = await this.assignments.findOne({
+      where: { id: assignmentId, partnerProfileId },
+      relations: ['subOrder'],
+    });
+    if (!assignment?.subOrder) return null;
+    if (assignment.subOrder.status !== SubOrderStatus.PICKED_UP) {
+      return assignment;
+    }
+    await this.ordersRepo.updateSubOrderStatus(
+      assignment.subOrderId,
+      SubOrderStatus.OUT_FOR_DELIVERY,
+      partnerProfileId,
+      ActorType.DELIVERY_PARTNER,
+    );
+    return this.assignments.findOne({
+      where: { id: assignmentId },
+      relations: ['subOrder'],
+    });
+  }
+
   async confirmDelivery(assignmentId: string, partnerProfileId: string) {
     const assignment = await this.assignments.findOne({
       where: { id: assignmentId, partnerProfileId },

@@ -32,6 +32,7 @@ import { KycService } from '../kyc/kyc.service';
 import { PayoutEntity } from '../payouts/entities/payout.entity';
 import { WalletService } from '../wallet/wallet.service';
 import { CommissionService } from '../commission/commission.service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CreateStoreDto, UpdateStoreDto } from './dto/store.dto';
 import { CreateSellerProductDto } from './dto/create-seller-product.dto';
 import { UpdateSellerProductDto } from './dto/update-seller-product.dto';
@@ -69,6 +70,7 @@ export class SellerService {
     private readonly kycService: KycService,
     private readonly walletService: WalletService,
     private readonly commissionService: CommissionService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async getProfile(userId: string, userType: UserType) {
@@ -183,6 +185,11 @@ export class SellerService {
       userId,
       actorType,
     );
+    if (toStatus === SubOrderStatus.READY_FOR_PICKUP) {
+      this.eventEmitter.emit('suborder.ready_for_pickup', {
+        subOrderId: orderId,
+      });
+    }
     return this.formatSubOrder(updated!);
   }
 

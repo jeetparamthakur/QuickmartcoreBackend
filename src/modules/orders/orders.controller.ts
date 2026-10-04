@@ -17,6 +17,7 @@ import {
 } from '../../common/decorators/auth.decorators';
 import { UserType } from '../../common/enums';
 import { OrdersService } from './orders.service';
+import { OrderTrackingService } from './order-tracking.service';
 import { Inject } from '@nestjs/common';
 import { CUSTOMERS_REPOSITORY } from '../customers/customers.repository.port';
 import type { CustomersRepositoryPort } from '../customers/customers.repository.port';
@@ -27,6 +28,7 @@ import type { CustomersRepositoryPort } from '../customers/customers.repository.
 export class OrdersController {
   constructor(
     private readonly ordersService: OrdersService,
+    private readonly orderTrackingService: OrderTrackingService,
     @Inject(CUSTOMERS_REPOSITORY)
     private readonly customersRepo: CustomersRepositoryPort,
   ) {}
@@ -36,6 +38,16 @@ export class OrdersController {
   async list(@Req() req: { user: AuthenticatedUser }) {
     const profile = await this.customersRepo.findByUserId(req.user.id);
     return this.ordersService.listCustomerOrders(profile!.id);
+  }
+
+  @Get(':id/tracking')
+  @RequirePermissions('orders:read')
+  async getTracking(
+    @Req() req: { user: AuthenticatedUser },
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    const profile = await this.customersRepo.findByUserId(req.user.id);
+    return this.orderTrackingService.getCustomerOrderTracking(id, profile!.id);
   }
 
   @Get(':id')

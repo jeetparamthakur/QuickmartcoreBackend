@@ -2,6 +2,8 @@ import { PaginatedResult } from '../../common/dto/pagination.dto';
 import { SellerType } from '../../common/enums';
 
 export const DUMMY_STORE_ID = '11111111-1111-4111-8111-111111111111';
+export const DUMMY_FOOD_STORE_A = '22222222-2222-4222-8222-222222222221';
+export const DUMMY_FOOD_STORE_B = '22222222-2222-4222-8222-222222222222';
 
 export type DummySellerProduct = {
   id: string;
@@ -410,7 +412,64 @@ function uuid(prefix: string, n: number): string {
   return `${prefix}-0000-4000-8000-0000000000${pad2(n)}`;
 }
 
-export const DUMMY_CATALOG: DummySellerProduct[] = ITEMS.map((item, index) => {
+const FOOD_ITEMS: Array<{
+  name: string;
+  brand: string;
+  mrp: string;
+  selling: string;
+  qty: number;
+  storeId: string;
+  storeName: string;
+  isVeg: boolean;
+  prepTimeMinutes: number;
+}> = [
+  {
+    name: 'Paneer Butter Masala',
+    brand: 'House Special',
+    mrp: '220.00',
+    selling: '189.00',
+    qty: 20,
+    storeId: DUMMY_FOOD_STORE_A,
+    storeName: 'Spice Route Kitchen',
+    isVeg: true,
+    prepTimeMinutes: 25,
+  },
+  {
+    name: 'Chicken Biryani',
+    brand: 'House Special',
+    mrp: '280.00',
+    selling: '249.00',
+    qty: 15,
+    storeId: DUMMY_FOOD_STORE_A,
+    storeName: 'Spice Route Kitchen',
+    isVeg: false,
+    prepTimeMinutes: 30,
+  },
+  {
+    name: 'Margherita Pizza',
+    brand: 'Wood Fire',
+    mrp: '320.00',
+    selling: '279.00',
+    qty: 18,
+    storeId: DUMMY_FOOD_STORE_B,
+    storeName: 'Urban Slice',
+    isVeg: true,
+    prepTimeMinutes: 20,
+  },
+  {
+    name: 'Pepperoni Pizza',
+    brand: 'Wood Fire',
+    mrp: '360.00',
+    selling: '319.00',
+    qty: 12,
+    storeId: DUMMY_FOOD_STORE_B,
+    storeName: 'Urban Slice',
+    isVeg: false,
+    prepTimeMinutes: 22,
+  },
+];
+
+const RETAIL_CATALOG: DummySellerProduct[] = ITEMS.map((item, index) => {
   const n = index + 1;
   const id = uuid('aaaaaaa0', n);
   const masterId = uuid('bbbbbbb0', n);
@@ -432,7 +491,7 @@ export const DUMMY_CATALOG: DummySellerProduct[] = ITEMS.map((item, index) => {
       description: `Dummy catalog item: ${item.name}`,
       brand: item.brand,
       baseUnit: item.unit,
-      attributes: {},
+      attributes: { productType: 'retail' },
     },
     store: { id: DUMMY_STORE_ID, name: 'Fresh Mart' },
     independentSeller: null,
@@ -443,9 +502,60 @@ export const DUMMY_CATALOG: DummySellerProduct[] = ITEMS.map((item, index) => {
   };
 });
 
+const FOOD_CATALOG: DummySellerProduct[] = FOOD_ITEMS.map((item, index) => {
+  const n = index + 1;
+  const id = uuid('ccccccc0', n);
+  const masterId = uuid('ddddddd0', n);
+  return {
+    id,
+    sellerType: SellerType.STORE,
+    storeId: item.storeId,
+    independentSellerId: null,
+    masterProductId: masterId,
+    variantId: null,
+    title: `${item.name} - ${item.storeName}`,
+    mrp: item.mrp,
+    sellingPrice: item.selling,
+    isActive: true,
+    masterProduct: {
+      id: masterId,
+      categoryId: 'cat-food',
+      name: item.name,
+      description: `Dummy food item: ${item.name}`,
+      brand: item.brand,
+      baseUnit: 'serving',
+      attributes: {
+        productType: 'food',
+        isVeg: item.isVeg,
+        prepTimeMinutes: item.prepTimeMinutes,
+        categoryLabel: 'Food',
+      },
+    },
+    store: { id: item.storeId, name: item.storeName },
+    independentSeller: null,
+    inventory: {
+      quantityAvailable: item.qty,
+      quantityReserved: 0,
+    },
+  };
+});
+
+export const DUMMY_CATALOG: DummySellerProduct[] = [
+  ...RETAIL_CATALOG,
+  ...FOOD_CATALOG,
+];
+
+export type DummyCatalogFilters = {
+  categoryId?: string;
+  storeId?: string;
+  q?: string;
+  productType?: 'food' | 'retail';
+  storeIds?: string[];
+};
+
 function matchesFilters(
   product: DummySellerProduct,
-  filters: { categoryId?: string; storeId?: string; q?: string },
+  filters: DummyCatalogFilters,
 ): boolean {
   if (
     filters.categoryId &&
@@ -462,21 +572,24 @@ function matchesFilters(
       `${product.title} ${product.masterProduct.name} ${product.masterProduct.brand}`.toLowerCase();
     if (!haystack.includes(q)) return false;
   }
+  const attrs = product.masterProduct.attributes ?? {};
+  const isFood = attrs.productType === 'food';
+  if (filters.productType === 'food' && !isFood) return false;
+  if (filters.productType === 'retail' && isFood) return false;
+  if (filters.storeIds?.length && !filters.storeIds.includes(product.storeId)) {
+    return false;
+  }
   return true;
 }
 
-export function filterDummyCatalog(filters: {
-  categoryId?: string;
-  storeId?: string;
-  q?: string;
-}): DummySellerProduct[] {
+export function filterDummyCatalog(filters: DummyCatalogFilters): DummySellerProduct[] {
   return DUMMY_CATALOG.filter((p) => matchesFilters(p, filters));
 }
 
 export function paginateDummyCatalog(
   page: number,
   limit: number,
-  filters: { categoryId?: string; storeId?: string; q?: string },
+  filters: DummyCatalogFilters,
 ): PaginatedResult<DummySellerProduct> {
   const filtered = filterDummyCatalog(filters);
   const start = (page - 1) * limit;

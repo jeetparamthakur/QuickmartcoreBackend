@@ -56,6 +56,25 @@ export class DeliveryPartnerProfileEntity extends BaseEntity {
   })
   currentLng?: string | null;
 
+  @Column({ name: 'profile_details', type: 'jsonb', nullable: true })
+  profileDetails?: {
+    city?: string;
+    vehicleType?: string;
+    bankDetails?: {
+      accountHolderName: string;
+      bankName: string;
+      accountNumber: string;
+      ifscCode: string;
+      verificationStatus?: 'pending' | 'verified' | 'failed';
+    };
+    onboardingStep?: string;
+    activeTripStep?: string;
+    deliveryScope?: string;
+    storeId?: string | null;
+    sellerId?: string | null;
+    pushToken?: string;
+  } | null;
+
   @OneToOne(() => UserEntity, (u) => u.deliveryPartnerProfile, {
     onDelete: 'CASCADE',
   })

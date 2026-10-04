@@ -16,8 +16,12 @@ function isExternalDatabaseUrl(url: string): boolean {
 async function syncDatabase(): Promise<void> {
   const databaseUrl = process.env.DATABASE_URL ?? LOCAL_DB.url;
 
+  let embeddedPg: Awaited<ReturnType<typeof ensureLocalDatabase>>['pg'] = null;
+  let startedEmbedded = false;
   if (!isExternalDatabaseUrl(databaseUrl)) {
-    await ensureLocalDatabase();
+    const local = await ensureLocalDatabase();
+    embeddedPg = local.pg;
+    startedEmbedded = local.startedByUs;
   }
   const dataSource = new DataSource({
     type: 'postgres',
@@ -48,6 +52,9 @@ async function syncDatabase(): Promise<void> {
     );
   } finally {
     await verifyClient.end();
+    if (startedEmbedded && embeddedPg) {
+      await embeddedPg.stop();
+    }
   }
 }
 

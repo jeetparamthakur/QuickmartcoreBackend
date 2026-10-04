@@ -1,4 +1,7 @@
 import { config as loadEnv } from 'dotenv';
+
+loadEnv({ override: true });
+
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -14,8 +17,7 @@ import {
   resolveRedisUrl,
   shouldSkipRedis,
 } from './config/redis-connection';
-
-loadEnv();
+import { createCorsOriginChecker } from './config/cors';
 
 async function ensureDevRedis(): Promise<LocalRedis | null> {
   if (shouldSkipRedis()) {
@@ -71,9 +73,16 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const config = app.get(ConfigService);
 
-  app.use(helmet());
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    }),
+  );
+
+  const corsOrigins = config.get<string[]>('corsOrigins') ?? [];
+  const nodeEnv = config.get<string>('nodeEnv') ?? 'development';
   app.enableCors({
-    origin: config.get<string[]>('corsOrigins'),
+    origin: createCorsOriginChecker(corsOrigins, nodeEnv),
     credentials: true,
   });
 

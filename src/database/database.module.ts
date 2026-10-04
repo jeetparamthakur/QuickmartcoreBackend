@@ -5,6 +5,7 @@ import { UserEntity } from '../modules/users/entities/user.entity';
 import { UserSessionEntity } from '../modules/auth/entities/user-session.entity';
 import { CustomerProfileEntity } from '../modules/customers/entities/customer-profile.entity';
 import { CustomerAddressEntity } from '../modules/customers/entities/customer-address.entity';
+import { CustomerWishlistItemEntity } from '../modules/customers/entities/customer-wishlist-item.entity';
 import { SellerProfileEntity } from '../modules/sellers/entities/seller-profile.entity';
 import { StoreOwnerProfileEntity } from '../modules/stores/entities/store-owner-profile.entity';
 import { DeliveryPartnerProfileEntity } from '../modules/delivery-partners/entities/delivery-partner-profile.entity';
@@ -65,6 +66,7 @@ export const ALL_ENTITIES = [
   UserSessionEntity,
   CustomerProfileEntity,
   CustomerAddressEntity,
+  CustomerWishlistItemEntity,
   SellerProfileEntity,
   StoreOwnerProfileEntity,
   DeliveryPartnerProfileEntity,

@@ -4,6 +4,7 @@ export interface CustomersRepositoryPort {
   findByUserId(userId: string): Promise<CustomerProfileEntity | null>;
   findById(id: string): Promise<CustomerProfileEntity | null>;
   create(data: Partial<CustomerProfileEntity>): Promise<CustomerProfileEntity>;
+  save(profile: CustomerProfileEntity): Promise<CustomerProfileEntity>;
 }
 
 export const CUSTOMERS_REPOSITORY = Symbol('CUSTOMERS_REPOSITORY');
