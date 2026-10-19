@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { ParentOrderEntity } from './entities/parent-order.entity';
 import { SubOrderEntity } from './entities/sub-order.entity';
 import { OrderItemEntity } from './entities/order-item.entity';
@@ -44,18 +44,19 @@ export class OrdersRepository {
     private readonly couponEngine: CouponEngineService,
   ) {}
 
-  private orderCounter = 10000;
-
-  private nextOrderNumber(suffix = '') {
-    this.orderCounter += 1;
-    return suffix
-      ? `${this.orderCounter}-${suffix}`
-      : String(this.orderCounter);
+  /** Numeric parent order numbers must stay unique across server restarts. */
+  private async nextParentOrderNumber(manager: EntityManager): Promise<string> {
+    const rows = await manager.query<Array<{ next: string }>>(
+      `SELECT COALESCE(MAX(CAST(order_number AS BIGINT)), 10000) + 1 AS next
+       FROM parent_orders
+       WHERE order_number ~ '^[0-9]+$'`,
+    );
+    return String(rows[0]?.next ?? 10001);
   }
 
   async createParentAndSubOrders(input: CreateOrderInput) {
     return this.dataSource.transaction(async (manager) => {
-      const parentNumber = this.nextOrderNumber();
+      const parentNumber = await this.nextParentOrderNumber(manager);
       const parent = await manager.save(
         manager.create(ParentOrderEntity, {
           customerId: input.customerId,

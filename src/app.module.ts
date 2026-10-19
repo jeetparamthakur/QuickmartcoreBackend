@@ -31,6 +31,7 @@ import { PaymentsModule } from './modules/payments/payments.module';
 import { FinanceModule } from './modules/finance/finance.module';
 import { RefundsModule } from './modules/refunds/refunds.module';
 import { DeliveryModule } from './modules/delivery/delivery.module';
+import { DeliveryPartnerPayModule } from './modules/delivery-partner-pay/delivery-partner-pay.module';
 import { CommissionModule } from './modules/commission/commission.module';
 import { PayoutsModule } from './modules/payouts/payouts.module';
 import { WalletModule } from './modules/wallet/wallet.module';
@@ -86,6 +87,7 @@ import { PermissionsGuard } from './common/guards/permissions.guard';
     FinanceModule,
     RefundsModule,
     DeliveryModule,
+    DeliveryPartnerPayModule,
     CommissionModule,
     PayoutsModule,
     WalletModule,

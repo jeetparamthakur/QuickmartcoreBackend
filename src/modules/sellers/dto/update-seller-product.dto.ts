@@ -2,6 +2,7 @@ import { Type } from 'class-transformer';
 import {
   IsArray,
   IsNumber,
+  IsObject,
   IsOptional,
   IsString,
   IsUUID,
@@ -30,6 +31,10 @@ export class UpdateSellerProductDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @IsOptional()
+  @IsObject()
+  specifications?: Record<string, string>;
 
   @IsOptional()
   @IsArray()

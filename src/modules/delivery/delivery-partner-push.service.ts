@@ -47,9 +47,11 @@ export class DeliveryPartnerPushService {
         sound: 'default' as const,
         priority: 'high' as const,
         channelId: 'deliveries',
+        categoryId: 'delivery_request',
         data: {
           type: 'delivery_request',
           subOrderId: subOrder.id,
+          orderNumber: subOrder.orderNumber,
         },
       }));
 
@@ -88,10 +90,12 @@ export class DeliveryPartnerPushService {
         sound: 'default',
         priority: 'high',
         channelId: 'deliveries',
+        categoryId: 'delivery_request',
         data: {
           type: 'delivery_request',
           subOrderId: subOrder.id,
           assignmentId,
+          orderNumber: subOrder.orderNumber,
         },
       },
     ]);

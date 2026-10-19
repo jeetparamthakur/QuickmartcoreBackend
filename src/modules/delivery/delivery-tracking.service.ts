@@ -3,6 +3,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { DeliveryPartnerProfileEntity } from '../delivery-partners/entities/delivery-partner-profile.entity';
 import { PartnerLocationEntity } from './entities/partner-location.entity';
+import {
+  PartnerOnlineStatusDto,
+  PartnerShiftService,
+} from './partner-shift.service';
 
 const LOCATION_RATE_LIMIT_MS = 10_000;
 
@@ -53,7 +57,10 @@ export class DeliveryTrackingRepository {
 
 @Injectable()
 export class DeliveryTrackingService {
-  constructor(private readonly repo: DeliveryTrackingRepository) {}
+  constructor(
+    private readonly repo: DeliveryTrackingRepository,
+    private readonly shiftService: PartnerShiftService,
+  ) {}
 
   async updateLocation(partnerProfileId: string, lat: string, lng: string) {
     const since = new Date(Date.now() - LOCATION_RATE_LIMIT_MS);
@@ -78,7 +85,16 @@ export class DeliveryTrackingService {
     return this.repo.getLatestLocation(partnerProfileId);
   }
 
-  setOnlineStatus(partnerProfileId: string, isOnline: boolean) {
-    return this.repo.setOnlineStatus(partnerProfileId, isOnline);
+  async setOnlineStatus(
+    partnerProfileId: string,
+    isOnline: boolean,
+  ): Promise<PartnerOnlineStatusDto> {
+    if (isOnline) {
+      await this.shiftService.startShift(partnerProfileId);
+    } else {
+      await this.shiftService.endOpenShift(partnerProfileId);
+    }
+    await this.repo.setOnlineStatus(partnerProfileId, isOnline);
+    return this.shiftService.buildOnlineStatusPayload(partnerProfileId, isOnline);
   }
 }

@@ -37,6 +37,7 @@ import {
   ChargeRuleEntity,
   DeliveryFeeSlabEntity,
 } from '../modules/charges/entities/charge-rule.entity';
+import { DeliveryPartnerPaySlabEntity } from '../modules/delivery-partner-pay/entities/delivery-partner-pay-slab.entity';
 import {
   AuditLogEntity,
   IdempotencyKeyEntity,
@@ -94,6 +95,7 @@ export const ALL_ENTITIES = [
   OrderStatusHistoryEntity,
   ChargeRuleEntity,
   DeliveryFeeSlabEntity,
+  DeliveryPartnerPaySlabEntity,
   AuditLogEntity,
   IdempotencyKeyEntity,
   PaymentEntity,

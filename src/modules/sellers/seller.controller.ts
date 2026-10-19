@@ -23,6 +23,10 @@ import { CreateStoreDto, UpdateStoreDto } from './dto/store.dto';
 import { CreateSellerProductDto } from './dto/create-seller-product.dto';
 import { UpdateSellerProductDto } from './dto/update-seller-product.dto';
 import { StoreContextQueryDto } from './dto/store-context-query.dto';
+import {
+  CreateStoreCategoryDto,
+  UpdateStoreCategoryDto,
+} from './dto/store-category.dto';
 
 @Controller('seller')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -54,6 +58,70 @@ export class SellerController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.sellerService.getStore(req.user.id, req.user.userType, id);
+  }
+
+  @Get('stores/:id/categories')
+  listStoreCategories(
+    @Req() req: { user: AuthenticatedUser },
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.sellerService.listStoreCategories(
+      req.user.id,
+      req.user.userType,
+      id,
+    );
+  }
+
+  @Post('stores/:id/categories')
+  createStoreCategory(
+    @Req() req: { user: AuthenticatedUser },
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateStoreCategoryDto,
+  ) {
+    return this.sellerService.createStoreCategory(
+      req.user.id,
+      req.user.userType,
+      id,
+      dto,
+    );
+  }
+
+  @Get('categories/:id')
+  getStoreCategory(
+    @Req() req: { user: AuthenticatedUser },
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.sellerService.getStoreCategory(
+      req.user.id,
+      req.user.userType,
+      id,
+    );
+  }
+
+  @Patch('categories/:id')
+  updateStoreCategory(
+    @Req() req: { user: AuthenticatedUser },
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateStoreCategoryDto,
+  ) {
+    return this.sellerService.updateStoreCategory(
+      req.user.id,
+      req.user.userType,
+      id,
+      dto,
+    );
+  }
+
+  @Delete('categories/:id')
+  deleteStoreCategory(
+    @Req() req: { user: AuthenticatedUser },
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.sellerService.deleteStoreCategory(
+      req.user.id,
+      req.user.userType,
+      id,
+    );
   }
 
   @Patch('stores/:id')
@@ -196,6 +264,30 @@ export class SellerController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.sellerService.getOrder(req.user.id, req.user.userType, id);
+  }
+
+  @Post('orders/:id/delivery-request')
+  requestOrderDelivery(
+    @Req() req: { user: AuthenticatedUser },
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.sellerService.requestOrderDelivery(
+      req.user.id,
+      req.user.userType,
+      id,
+    );
+  }
+
+  @Post('orders/:id/delivery-request/cancel')
+  cancelOrderDeliveryRequest(
+    @Req() req: { user: AuthenticatedUser },
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.sellerService.cancelOrderDeliveryRequest(
+      req.user.id,
+      req.user.userType,
+      id,
+    );
   }
 
   @Post('orders/:id/:action')

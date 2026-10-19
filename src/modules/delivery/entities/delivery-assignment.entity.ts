@@ -30,6 +30,15 @@ export class DeliveryAssignmentEntity extends BaseEntity {
   @Column({ name: 'timeout_at', type: 'timestamptz', nullable: true })
   timeoutAt?: Date | null;
 
+  @Column({
+    name: 'partner_earning',
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+    nullable: true,
+  })
+  partnerEarning?: string | null;
+
   @ManyToOne(() => SubOrderEntity)
   @JoinColumn({ name: 'sub_order_id' })
   subOrder!: SubOrderEntity;

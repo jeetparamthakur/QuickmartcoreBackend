@@ -16,6 +16,7 @@ import { WalletModule } from '../wallet/wallet.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { CategoriesModule } from '../categories/categories.module';
 import { CommissionModule } from '../commission/commission.module';
+import { DeliveryModule } from '../delivery/delivery.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { CommissionModule } from '../commission/commission.module';
     CategoriesModule,
     NotificationsModule,
     CommissionModule,
+    DeliveryModule,
   ],
   controllers: [SellerController],
   providers: [SellerService],

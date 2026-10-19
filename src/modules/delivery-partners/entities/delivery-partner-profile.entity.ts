@@ -69,6 +69,7 @@ export class DeliveryPartnerProfileEntity extends BaseEntity {
     };
     onboardingStep?: string;
     activeTripStep?: string;
+    activeRun?: Record<string, unknown>;
     deliveryScope?: string;
     storeId?: string | null;
     sellerId?: string | null;

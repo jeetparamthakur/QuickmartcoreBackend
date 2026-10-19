@@ -26,13 +26,18 @@ import { DeliveryAssignmentService } from './delivery-assignment.service';
 import { DeliveryTrackingService } from './delivery-tracking.service';
 import { DeliveryPartnerProfileService } from './delivery-partner-profile.service';
 import { DeliveryPartnerAppService } from './delivery-partner-app.service';
+import { PartnerShiftService } from './partner-shift.service';
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
   IsBoolean,
   IsEnum,
   IsNotEmpty,
   IsNumberString,
   IsOptional,
   IsString,
+  IsUUID,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -113,6 +118,14 @@ class AdvanceTripStatusDto {
   status?: string;
 }
 
+class AcceptBatchDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(5)
+  @IsUUID('4', { each: true })
+  assignmentIds!: string[];
+}
+
 @Controller('delivery-partner')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserType.DELIVERY_PARTNER)
@@ -122,6 +135,7 @@ export class DeliveryPartnerController {
     private readonly trackingService: DeliveryTrackingService,
     private readonly profileService: DeliveryPartnerProfileService,
     private readonly appService: DeliveryPartnerAppService,
+    private readonly shiftService: PartnerShiftService,
   ) {}
 
   private partnerId(req: { user: AuthenticatedUser }) {
@@ -245,6 +259,17 @@ export class DeliveryPartnerController {
     });
   }
 
+  @Post('requests/accept-batch')
+  acceptRequestBatch(
+    @Req() req: { user: AuthenticatedUser },
+    @Body() dto: AcceptBatchDto,
+  ) {
+    return this.appService.acceptRequestBatch(
+      dto.assignmentIds,
+      this.partnerId(req),
+    );
+  }
+
   @Post('requests/:id/accept')
   acceptRequest(
     @Req() req: { user: AuthenticatedUser },
@@ -259,6 +284,29 @@ export class DeliveryPartnerController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.appService.rejectRequest(id, this.partnerId(req));
+  }
+
+  @Get('orders')
+  listOrders(
+    @Req() req: { user: AuthenticatedUser },
+    @Query('tab') tab?: string,
+  ) {
+    const normalized =
+      tab === 'delivered' ? 'delivered' : tab === 'active' ? 'active' : 'active';
+    if (tab != null && tab !== 'active' && tab !== 'delivered') {
+      throw new BadRequestException('tab must be active or delivered');
+    }
+    return this.appService.listOrders(this.partnerId(req), normalized);
+  }
+
+  @Get('runs/active')
+  activeRun(@Req() req: { user: AuthenticatedUser }) {
+    return this.appService.getActiveRun(this.partnerId(req));
+  }
+
+  @Post('runs/active/advance')
+  advanceActiveRun(@Req() req: { user: AuthenticatedUser }) {
+    return this.appService.advanceActiveRun(this.partnerId(req));
   }
 
   @Get('trips/active')
@@ -288,8 +336,8 @@ export class DeliveryPartnerController {
   }
 
   @Get('shifts')
-  shifts() {
-    return [];
+  shifts(@Req() req: { user: AuthenticatedUser }) {
+    return this.shiftService.getShiftHistory(this.partnerId(req));
   }
 
   @Post('devices')

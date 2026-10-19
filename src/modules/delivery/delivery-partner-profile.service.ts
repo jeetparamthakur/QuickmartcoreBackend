@@ -11,6 +11,7 @@ import { DeliveryAssignmentEntity } from './entities/delivery-assignment.entity'
 import { DeliveryAssignmentService } from './delivery-assignment.service';
 import { OrdersRepository } from '../orders/orders.service';
 import { ActorType } from '../../common/enums';
+import { PartnerShiftService } from './partner-shift.service';
 
 @Injectable()
 export class DeliveryPartnerProfileService {
@@ -21,6 +22,7 @@ export class DeliveryPartnerProfileService {
     private readonly assignments: Repository<DeliveryAssignmentEntity>,
     private readonly assignmentService: DeliveryAssignmentService,
     private readonly ordersRepo: OrdersRepository,
+    private readonly shiftService: PartnerShiftService,
   ) {}
 
   async getByUserId(userId: string) {
@@ -71,11 +73,14 @@ export class DeliveryPartnerProfileService {
         status: DeliveryAssignmentStatus.COMPLETED,
       },
     });
+    const onlineTimeMinutes = await this.shiftService.getTodayOnlineMinutes(
+      profile.id,
+    );
     return {
       todayDeliveries: completed,
       todayEarnings: completed * 50,
       rating: 4.8,
-      onlineTimeMinutes: 0,
+      onlineTimeMinutes,
       isOnline: profile.isOnline,
       preference: profile.preference,
     };
@@ -153,13 +158,58 @@ export class DeliveryPartnerProfileService {
   }
 
   async getEarnings(partnerProfileId: string) {
-    const completed = await this.assignments.count({
-      where: { partnerProfileId, status: DeliveryAssignmentStatus.COMPLETED },
-    });
+    const startOfToday = this.startOfUtcDay();
+    const startOfWeek = new Date(startOfToday);
+    startOfWeek.setUTCDate(startOfWeek.getUTCDate() - 6);
+    const startOfMonth = new Date(
+      Date.UTC(startOfToday.getUTCFullYear(), startOfToday.getUTCMonth(), 1),
+    );
+
+    const [today, week, month, total, completed] = await Promise.all([
+      this.sumPartnerEarnings(partnerProfileId, startOfToday),
+      this.sumPartnerEarnings(partnerProfileId, startOfWeek),
+      this.sumPartnerEarnings(partnerProfileId, startOfMonth),
+      this.sumPartnerEarnings(partnerProfileId),
+      this.assignments.count({
+        where: {
+          partnerProfileId,
+          status: DeliveryAssignmentStatus.COMPLETED,
+        },
+      }),
+    ]);
+
     return {
-      totalEarnings: completed * 50,
-      todayEarnings: 0,
+      todayEarnings: today,
+      weekEarnings: week,
+      monthEarnings: month,
+      totalEarnings: total,
       completedDeliveries: completed,
     };
+  }
+
+  private async sumPartnerEarnings(
+    partnerProfileId: string,
+    since?: Date,
+  ): Promise<number> {
+    const qb = this.assignments
+      .createQueryBuilder('a')
+      .select('COALESCE(SUM(a.partner_earning), 0)', 'sum')
+      .where('a.partner_profile_id = :partnerProfileId', { partnerProfileId })
+      .andWhere('a.status = :status', {
+        status: DeliveryAssignmentStatus.COMPLETED,
+      });
+
+    if (since) {
+      qb.andWhere('a.updated_at >= :since', { since });
+    }
+
+    const row = await qb.getRawOne<{ sum: string }>();
+    return parseFloat(row?.sum ?? '0');
+  }
+
+  private startOfUtcDay(date = new Date()) {
+    return new Date(
+      Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+    );
   }
 }

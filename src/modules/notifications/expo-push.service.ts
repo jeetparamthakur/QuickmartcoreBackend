@@ -11,6 +11,7 @@ export type ExpoPushMessage = {
   sound?: 'default' | null;
   priority?: 'default' | 'normal' | 'high';
   channelId?: string;
+  categoryId?: string;
   data?: Record<string, string>;
 };
 

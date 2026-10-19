@@ -8,6 +8,7 @@ import {
 import { DeliveryPartnerProfileEntity } from '../delivery-partners/entities/delivery-partner-profile.entity';
 import { SubOrderEntity } from '../orders/entities/sub-order.entity';
 import { DeliveryAssignmentEntity } from './entities/delivery-assignment.entity';
+import { PartnerAssignmentPayService } from '../delivery-partner-pay/partner-assignment-pay.service';
 
 const ASSIGNMENT_TIMEOUT_MS = 5 * 60 * 1000;
 
@@ -80,13 +81,24 @@ export class DeliveryAssignmentRepository {
   }
 
   getSubOrder(id: string) {
-    return this.subOrders.findOne({ where: { id } });
+    return this.subOrders.findOne({
+      where: { id },
+      relations: [
+        'store',
+        'independentSeller',
+        'parentOrder',
+        'parentOrder.customer',
+      ],
+    });
   }
 }
 
 @Injectable()
 export class DeliveryAssignmentService {
-  constructor(private readonly repo: DeliveryAssignmentRepository) {}
+  constructor(
+    private readonly repo: DeliveryAssignmentRepository,
+    private readonly partnerPay: PartnerAssignmentPayService,
+  ) {}
 
   findEligiblePartners(preference?: DeliveryPartnerPreference) {
     return this.repo.findEligiblePartners(preference);
@@ -99,6 +111,10 @@ export class DeliveryAssignmentService {
     }
 
     const timeoutAt = new Date(Date.now() + ASSIGNMENT_TIMEOUT_MS);
+    const earning = await this.partnerPay.computeEarningAmount(
+      partnerProfileId,
+      subOrder,
+    );
 
     const assignment = await this.repo.createAssignment({
       subOrderId,
@@ -106,6 +122,7 @@ export class DeliveryAssignmentService {
       status: DeliveryAssignmentStatus.PENDING,
       assignedAt: new Date(),
       timeoutAt,
+      partnerEarning: earning.toFixed(2),
     });
 
     return assignment;
@@ -117,9 +134,16 @@ export class DeliveryAssignmentService {
       return null;
     }
 
+    let partnerEarning = assignment.partnerEarning;
+    if (partnerEarning == null || partnerEarning === '') {
+      const earning = await this.partnerPay.computeForAssignment(assignment);
+      partnerEarning = earning.toFixed(2);
+    }
+
     await this.repo.update(assignmentId, {
       status: DeliveryAssignmentStatus.ACCEPTED,
       acceptedAt: new Date(),
+      partnerEarning,
     });
 
     return this.repo.findById(assignmentId);

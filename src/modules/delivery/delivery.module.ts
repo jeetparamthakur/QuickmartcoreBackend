@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DeliveryAssignmentEntity } from './entities/delivery-assignment.entity';
 import { PartnerLocationEntity } from './entities/partner-location.entity';
+import { PartnerShiftEntity } from './entities/partner-shift.entity';
+import { PartnerShiftService } from './partner-shift.service';
 import { DeliveryPartnerProfileEntity } from '../delivery-partners/entities/delivery-partner-profile.entity';
 import { SubOrderEntity } from '../orders/entities/sub-order.entity';
 import {
@@ -25,12 +27,15 @@ import { IndependentSellersModule } from '../independent-sellers/independent-sel
 import { NotificationsModule } from '../notifications/notifications.module';
 import { DeliveryPartnerPushService } from './delivery-partner-push.service';
 import { DeliveryPickupPushListener } from './delivery-pickup-push.listener';
+import { SellerOrderDeliveryService } from './seller-order-delivery.service';
+import { DeliveryPartnerPayModule } from '../delivery-partner-pay/delivery-partner-pay.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([
       DeliveryAssignmentEntity,
       PartnerLocationEntity,
+      PartnerShiftEntity,
       DeliveryPartnerProfileEntity,
       SubOrderEntity,
       UserEntity,
@@ -42,6 +47,7 @@ import { DeliveryPickupPushListener } from './delivery-pickup-push.listener';
     StoresModule,
     IndependentSellersModule,
     NotificationsModule,
+    DeliveryPartnerPayModule,
   ],
   controllers: [DeliveryPartnerController],
   providers: [
@@ -49,15 +55,18 @@ import { DeliveryPickupPushListener } from './delivery-pickup-push.listener';
     DeliveryAssignmentService,
     DeliveryTrackingRepository,
     DeliveryTrackingService,
+    PartnerShiftService,
     DeliveryPartnerProfileService,
     DeliveryPartnerAppService,
     DeliveryPartnerPushService,
     DeliveryPickupPushListener,
+    SellerOrderDeliveryService,
   ],
   exports: [
     DeliveryAssignmentService,
     DeliveryTrackingService,
     DeliveryPartnerPushService,
+    SellerOrderDeliveryService,
   ],
 })
 export class DeliveryModule {}

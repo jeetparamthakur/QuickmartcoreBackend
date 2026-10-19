@@ -27,6 +27,7 @@
     "db:wipe": "ts-node -r tsconfig-paths/register scripts/wipe-db.ts",
     "redis:local": "ts-node -r tsconfig-paths/register scripts/start-local-redis.ts",
     "seed": "ts-node -r tsconfig-paths/register scripts/seed.ts",
+    "seed:admin": "ts-node -r tsconfig-paths/register scripts/seed-admin.ts",
     "seed:dummy-delivery": "ts-node -r tsconfig-paths/register scripts/seed-dummy-delivery-order.ts",
     "seed:fresh": "ts-node -r tsconfig-paths/register scripts/seed-fresh.ts"
   },

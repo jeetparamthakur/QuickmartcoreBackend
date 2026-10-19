@@ -31,6 +31,7 @@ import {
   ChargeRuleEntity,
   DeliveryFeeSlabEntity,
 } from '../src/modules/charges/entities/charge-rule.entity';
+import { DeliveryPartnerPaySlabEntity } from '../src/modules/delivery-partner-pay/entities/delivery-partner-pay-slab.entity';
 import { AdminProfileEntity } from '../src/modules/admin/entities/admin-profile.entity';
 import { CommissionRuleEntity } from '../src/modules/commission/entities/commission-rule.entity';
 import { CouponEntity } from '../src/modules/coupons/entities/coupon.entity';
@@ -177,6 +178,20 @@ async function seed() {
     minKm: '2',
     maxKm: '5',
     fee: '30.00',
+    isActive: true,
+  });
+
+  await ds.getRepository(DeliveryPartnerPaySlabEntity).save({
+    minKm: '0',
+    maxKm: '3',
+    fee: '35.00',
+    isActive: true,
+  });
+
+  await ds.getRepository(DeliveryPartnerPaySlabEntity).save({
+    minKm: '3',
+    maxKm: '8',
+    fee: '45.00',
     isActive: true,
   });
 

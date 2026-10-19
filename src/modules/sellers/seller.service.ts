@@ -1,8 +1,10 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import {
@@ -36,8 +38,43 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CreateStoreDto, UpdateStoreDto } from './dto/store.dto';
 import { CreateSellerProductDto } from './dto/create-seller-product.dto';
 import { UpdateSellerProductDto } from './dto/update-seller-product.dto';
+import {
+  CreateStoreCategoryDto,
+  UpdateStoreCategoryDto,
+} from './dto/store-category.dto';
+import { SellerOrderDeliveryService } from '../delivery/seller-order-delivery.service';
+
+function normalizeProductSpecifications(
+  raw?: Record<string, string> | null,
+): Record<string, string> {
+  if (!raw || typeof raw !== 'object') return {};
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    const label = key.trim();
+    const text =
+      typeof value === 'string' ? value.trim() : String(value ?? '').trim();
+    if (label && text) out[label] = text;
+  }
+  return out;
+}
+
+function specificationsFromAttributes(
+  attrs: Record<string, unknown>,
+): Record<string, string> {
+  const raw = attrs.specifications;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  return normalizeProductSpecifications(raw as Record<string, string>);
+}
 
 const LOW_STOCK_THRESHOLD = 5;
+
+type StoreProductCategoryRecord = {
+  id: string;
+  storeId: string;
+  name: string;
+  sortOrder: number;
+  createdAt: string;
+};
 
 const STATUS_ACTIONS: Partial<Record<SubOrderStatus, string[]>> = {
   [SubOrderStatus.PLACED]: ['ACCEPT', 'REJECT'],
@@ -71,6 +108,7 @@ export class SellerService {
     private readonly walletService: WalletService,
     private readonly commissionService: CommissionService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly sellerOrderDelivery: SellerOrderDeliveryService,
   ) {}
 
   async getProfile(userId: string, userType: UserType) {
@@ -130,7 +168,7 @@ export class SellerService {
     }
 
     const orders = await qb.getMany();
-    return orders.map((o) => this.formatSubOrder(o));
+    return Promise.all(orders.map((o) => this.formatSubOrder(o)));
   }
 
   async getOrder(userId: string, userType: UserType, orderId: string) {
@@ -140,6 +178,36 @@ export class SellerService {
     });
     if (!order) throw new NotFoundException('Order not found');
     await this.assertOrderAccess(userId, userType, order);
+    return this.formatSubOrder(order);
+  }
+
+  async requestOrderDelivery(
+    userId: string,
+    userType: UserType,
+    orderId: string,
+  ) {
+    const order = await this.subOrders.findOne({
+      where: { id: orderId },
+      relations: ['items', 'store', 'independentSeller'],
+    });
+    if (!order) throw new NotFoundException('Order not found');
+    await this.assertOrderAccess(userId, userType, order);
+    await this.sellerOrderDelivery.requestDelivery(orderId);
+    return this.formatSubOrder(order);
+  }
+
+  async cancelOrderDeliveryRequest(
+    userId: string,
+    userType: UserType,
+    orderId: string,
+  ) {
+    const order = await this.subOrders.findOne({
+      where: { id: orderId },
+      relations: ['items', 'store', 'independentSeller'],
+    });
+    if (!order) throw new NotFoundException('Order not found');
+    await this.assertOrderAccess(userId, userType, order);
+    await this.sellerOrderDelivery.cancelDeliveryRequest(orderId);
     return this.formatSubOrder(order);
   }
 
@@ -191,6 +259,18 @@ export class SellerService {
       });
     }
     return this.formatSubOrder(updated!);
+  }
+
+  private async formatSubOrder(order: SubOrderEntity) {
+    const delivery = await this.sellerOrderDelivery.getDeliveryFields(
+      order.id,
+      order,
+    );
+    return {
+      ...order,
+      ...delivery,
+      allowedActions: STATUS_ACTIONS[order.status] ?? [],
+    };
   }
 
   async listInventory(userId: string, userType: UserType, storeId?: string) {
@@ -326,6 +406,7 @@ export class SellerService {
         discountPercent: dto.discountPercent ?? 0,
         customUnit: dto.customUnit ?? null,
         unitType: dto.unitType ?? baseUnit,
+        specifications: normalizeProductSpecifications(dto.specifications),
       },
     });
 
@@ -415,6 +496,9 @@ export class SellerService {
       attrs.discountPercent = dto.discountPercent;
     if (dto.customUnit !== undefined) attrs.customUnit = dto.customUnit;
     if (dto.unitType !== undefined) attrs.unitType = dto.unitType;
+    if (dto.specifications !== undefined) {
+      attrs.specifications = normalizeProductSpecifications(dto.specifications);
+    }
 
     const nextStatus = dto.status?.trim();
     if (dto.name !== undefined) master.name = dto.name.trim();
@@ -575,6 +659,137 @@ export class SellerService {
 
     const saved = await this.stores.save(store);
     return this.mapStoreToResponse(saved, owner);
+  }
+
+  async listStoreCategories(
+    userId: string,
+    userType: UserType,
+    storeId: string,
+  ) {
+    const store = await this.assertStoreAccess(userId, userType, storeId);
+    const categories = this.readStoreProductCategories(store, storeId);
+    const products = await this.productsRepo.findByStoreId(storeId);
+    const counts = this.countProductsByFrontendCategory(products);
+    return categories
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((category) => ({
+        ...category,
+        productCount: counts.get(category.id) ?? 0,
+      }));
+  }
+
+  async createStoreCategory(
+    userId: string,
+    userType: UserType,
+    storeId: string,
+    dto: CreateStoreCategoryDto,
+  ) {
+    const store = await this.assertStoreAccess(userId, userType, storeId);
+    const trimmed = dto.name.trim();
+    if (!trimmed) {
+      throw new BadRequestException('Category name is required');
+    }
+
+    const categories = this.readStoreProductCategories(store, storeId);
+    const duplicate = categories.find(
+      (c) => c.name.toLowerCase() === trimmed.toLowerCase(),
+    );
+    if (duplicate) {
+      throw new ConflictException('A category with this name already exists');
+    }
+
+    const category: StoreProductCategoryRecord = {
+      id: randomUUID(),
+      storeId,
+      name: trimmed,
+      sortOrder: categories.length,
+      createdAt: new Date().toISOString(),
+    };
+
+    await this.writeStoreProductCategories(store, [...categories, category]);
+    return { ...category, productCount: 0 };
+  }
+
+  async getStoreCategory(
+    userId: string,
+    userType: UserType,
+    categoryId: string,
+  ) {
+    const located = await this.findStoreCategoryForUser(
+      userId,
+      userType,
+      categoryId,
+    );
+    const products = await this.productsRepo.findByStoreId(located.store.id);
+    const counts = this.countProductsByFrontendCategory(products);
+    return {
+      ...located.category,
+      productCount: counts.get(located.category.id) ?? 0,
+    };
+  }
+
+  async updateStoreCategory(
+    userId: string,
+    userType: UserType,
+    categoryId: string,
+    dto: UpdateStoreCategoryDto,
+  ) {
+    const trimmed = dto.name.trim();
+    if (!trimmed) {
+      throw new BadRequestException('Category name is required');
+    }
+
+    const located = await this.findStoreCategoryForUser(
+      userId,
+      userType,
+      categoryId,
+    );
+    const { store, category, categories } = located;
+
+    const duplicate = categories.find(
+      (c) =>
+        c.id !== categoryId && c.name.toLowerCase() === trimmed.toLowerCase(),
+    );
+    if (duplicate) {
+      throw new ConflictException('A category with this name already exists');
+    }
+
+    const nextCategories = categories.map((c) =>
+      c.id === categoryId ? { ...c, name: trimmed } : c,
+    );
+    await this.writeStoreProductCategories(store, nextCategories);
+
+    const products = await this.productsRepo.findByStoreId(store.id);
+    const counts = this.countProductsByFrontendCategory(products);
+    return {
+      ...nextCategories.find((c) => c.id === categoryId)!,
+      productCount: counts.get(categoryId) ?? 0,
+    };
+  }
+
+  async deleteStoreCategory(
+    userId: string,
+    userType: UserType,
+    categoryId: string,
+  ) {
+    const located = await this.findStoreCategoryForUser(
+      userId,
+      userType,
+      categoryId,
+    );
+    const products = await this.productsRepo.findByStoreId(located.store.id);
+    const inUse = products.some((product) => {
+      const attrs = product.masterProduct?.attributes ?? {};
+      return attrs.frontendCategoryId === categoryId;
+    });
+    if (inUse) {
+      throw new ConflictException(
+        'Cannot delete a category that has products',
+      );
+    }
+
+    const nextCategories = located.categories.filter((c) => c.id !== categoryId);
+    await this.writeStoreProductCategories(located.store, nextCategories);
   }
 
   async getEarnings(userId: string, userType: UserType, storeId?: string) {
@@ -875,13 +1090,6 @@ export class SellerService {
     }
   }
 
-  private formatSubOrder(order: SubOrderEntity) {
-    return {
-      ...order,
-      allowedActions: STATUS_ACTIONS[order.status] ?? [],
-    };
-  }
-
   private computeStockStatus(available: number, threshold: number) {
     if (available <= 0) return 'out_of_stock';
     if (available <= threshold) return 'low_stock';
@@ -952,6 +1160,7 @@ export class SellerService {
       pricePerUnit: Number(attrs.pricePerUnit ?? 0),
       marginAmount: Number(attrs.marginAmount ?? 0),
       marginPercent: Number(attrs.marginPercent ?? 0),
+      specifications: specificationsFromAttributes(attrs),
     };
   }
 
@@ -1077,6 +1286,95 @@ export class SellerService {
     const seller = await this.sellerProfiles.findOne({ where: { userId } });
     if (seller?.partnerType !== PartnerType.STORE) return null;
     return this.storeOwnerProfiles.findOne({ where: { userId } });
+  }
+
+  private readStoreProductCategories(
+    store: StoreEntity,
+    storeId: string,
+  ): StoreProductCategoryRecord[] {
+    const details = (store.details ?? {}) as Record<string, unknown>;
+    const raw = details.productCategories;
+    if (!Array.isArray(raw)) return [];
+
+    return raw
+      .map((item) => this.normalizeStoreProductCategory(item, storeId))
+      .filter((item): item is StoreProductCategoryRecord => item !== null);
+  }
+
+  private normalizeStoreProductCategory(
+    item: unknown,
+    storeId: string,
+  ): StoreProductCategoryRecord | null {
+    if (!item || typeof item !== 'object') return null;
+    const record = item as Record<string, unknown>;
+    const id = typeof record.id === 'string' ? record.id : '';
+    const name = typeof record.name === 'string' ? record.name.trim() : '';
+    if (!id || !name) return null;
+
+    const sortOrder =
+      typeof record.sortOrder === 'number' && Number.isFinite(record.sortOrder)
+        ? record.sortOrder
+        : 0;
+    const createdAt =
+      typeof record.createdAt === 'string'
+        ? record.createdAt
+        : new Date().toISOString();
+    const resolvedStoreId =
+      typeof record.storeId === 'string' ? record.storeId : storeId;
+
+    return {
+      id,
+      storeId: resolvedStoreId,
+      name,
+      sortOrder,
+      createdAt,
+    };
+  }
+
+  private async writeStoreProductCategories(
+    store: StoreEntity,
+    categories: StoreProductCategoryRecord[],
+  ) {
+    const details = (store.details ?? {}) as Record<string, unknown>;
+    store.details = { ...details, productCategories: categories };
+    await this.stores.save(store);
+  }
+
+  private countProductsByFrontendCategory(products: SellerProductEntity[]) {
+    const counts = new Map<string, number>();
+    for (const product of products) {
+      const attrs = product.masterProduct?.attributes ?? {};
+      const categoryId =
+        typeof attrs.frontendCategoryId === 'string'
+          ? attrs.frontendCategoryId
+          : null;
+      if (!categoryId) continue;
+      counts.set(categoryId, (counts.get(categoryId) ?? 0) + 1);
+    }
+    return counts;
+  }
+
+  private async findStoreCategoryForUser(
+    userId: string,
+    userType: UserType,
+    categoryId: string,
+  ) {
+    const owner = await this.resolveStoreOwnerProfile(userId, userType);
+    if (!owner) throw new NotFoundException('Category not found');
+
+    const storeRows = await this.stores.find({
+      where: { storeOwnerId: owner.id },
+    });
+
+    for (const store of storeRows) {
+      const categories = this.readStoreProductCategories(store, store.id);
+      const category = categories.find((c) => c.id === categoryId);
+      if (category) {
+        return { store, category, categories };
+      }
+    }
+
+    throw new NotFoundException('Category not found');
   }
 
   private async assertStoreAccess(

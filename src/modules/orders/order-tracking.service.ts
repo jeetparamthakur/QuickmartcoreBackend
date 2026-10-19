@@ -236,6 +236,7 @@ export class OrderTrackingService {
     };
   }
 
+  /** Uses customer default address; persist delivery snapshot on parent order at checkout for per-order accuracy. */
   private async resolveDeliveryAddress(customerId: string) {
     const addresses = await this.customerAddresses.find({
       where: { customerId },
